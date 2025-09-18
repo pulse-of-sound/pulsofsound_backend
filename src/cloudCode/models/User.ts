@@ -47,6 +47,15 @@ export default class User extends Parse.User {
   @ParseField('Boolean', false)
   status!: boolean;
 
+  @ParseField('Date', false)
+  birthDate!: Date;
+
+  @ParseField('String', false)
+  fatherName!: string;
+
+  @ParseField('File', false)
+  profilePic!: Parse.File;
+
   static map(user?: User, assignedRole?: Parse.Role) {
     if (!user) {
       return {};
@@ -60,6 +69,10 @@ export default class User extends Parse.User {
       updatedAt: user.updatedAt,
       status: user.get('status'),
       mobileNumber: user.get('mobileNumber'),
+      fullName: user.get('fullName'),
+      birthDate: user.get('birthDate'),
+      fatherName: user.get('fatherName'),
+      profilePic: user.get('profilePic'),
     };
 
     const flattenedObject = {
@@ -109,6 +122,10 @@ export default class User extends Parse.User {
         userBlock: block,
         deleted: deleted,
         accountStatus: accountStatus,
+
+        birthDate: new Date('2000-01-01'),
+        fatherName: 'fatherName ',
+        profilePic: null,
       });
     }
 
