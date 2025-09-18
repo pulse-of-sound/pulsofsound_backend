@@ -1,0 +1,38 @@
+{
+  "devDependencies": {
+    "@types/node": "20.8.2",
+    "gts": "^5.2.0",
+    "typescript": "~5.2.0"
+  },
+  "scripts": {
+    "compile": "tsc",
+    "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=1024 ./build/src/app.js",
+    "deploy": "node deploy.js",
+    "db": "parse-dashboard --config dashboard.json"
+  },
+  "dependencies": {
+    "@types/nodemailer": "^7.0.0",
+    "@types/parse": "^3.0.9",
+    "axios": "^1.6.7",
+    "blurhash": "^2.0.5",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.1",
+    "cors": "*",
+    "countrycitystatejson": "^21.3.2702",
+    "cross-zip": "^4.0.1",
+    "dotenv": "^16.4.1",
+    "express": "*",
+    "firebase-admin": "^13.4.0",
+    "google-auth-library": "^10.1.0",
+    "i18n-iso-countries": "^7.14.0",
+    "nodemailer": "^7.0.5",
+    "openai": "^5.16.0",
+    "parse": "^6.0.0",
+    "parse-server": "^8.2.1",
+    "phone": "^3.1.42",
+    "reflect-metadata": "^0.2.2",
+    "rimraf": "^5.0.5",
+    "sharp": "^0.33.2",
+    "winston-daily-rotate-file": "^5.0.0"
+  }
+}

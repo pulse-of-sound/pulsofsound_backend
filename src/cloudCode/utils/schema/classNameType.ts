@@ -1,0 +1,15 @@
+export type ClassNameType =
+  | 'User'
+  | '_User'
+  | '_Role'
+  | 'File'
+  | 'IMG'
+  | 'UserDeleted'
+  | 'AccountStatus'
+  | 'UserBlock'
+  | 'OTPcode'
+  | 'SpecializationReference'
+  | 'Employee'
+  | 'Test'
+  | 'Admin'
+  | 'Level';
