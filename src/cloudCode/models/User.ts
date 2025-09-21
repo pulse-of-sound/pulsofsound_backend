@@ -35,6 +35,9 @@ export default class User extends Parse.User {
   @ParseField('String', false)
   fullName!: string;
 
+  @ParseField('Pointer', false, '_Role')
+  role!: Parse.Role;
+
   @ParseField('Pointer', false, 'UserBlock')
   userBlock!: UserBlock;
 

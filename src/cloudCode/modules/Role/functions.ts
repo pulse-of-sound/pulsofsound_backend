@@ -1,6 +1,5 @@
 import Role from '../../models/Role';
 import {CloudFunction} from '../../utils/Registry/decorators';
-import Parse from 'parse/node';
 
 class RoleFunctions {
   @CloudFunction({
