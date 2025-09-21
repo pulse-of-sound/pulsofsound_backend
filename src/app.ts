@@ -158,13 +158,7 @@ function extractMasterKey(
 
 // Middleware to restrict access to specific routes
 function restrictRoutes(req: any, res: Response, next: NextFunction) {
-  const allowedRoutes = [
-    '/functions',
-    '/health',
-    '/serverInfo',
-    '/files',
-    '/users',
-  ];
+  const allowedRoutes = ['/functions', '/health', '/serverInfo', '/files'];
 
   if (req['x-master-key'] === process.env.masterKey) {
     return next();

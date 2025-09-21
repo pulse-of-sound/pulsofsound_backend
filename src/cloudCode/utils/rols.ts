@@ -1,4 +1,7 @@
 export enum SystemRoles {
   SUPER_ADMIN = 'SuperAdmin',
-  CLIENT = 'Client',
+  ADMIN = 'Admin',
+  CHILD = 'Child',
+  DOCTOR = 'Doctor',
+  SPECIALIST = 'Specialist',
 }

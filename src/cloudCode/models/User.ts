@@ -139,14 +139,6 @@ export default class User extends Parse.User {
   }
 
   static async assignRoleToUser(user: Parse.User, roleIdOrName: string) {
-    if (!roleIdOrName) {
-      const roles = await new Parse.Query(Parse.Role)
-        .equalTo('users', user)
-        .find({useMasterKey: true});
-
-      return roles.length > 0 ? roles[0] : undefined;
-    }
-
     const nameQuery = new Parse.Query(Parse.Role).equalTo('name', roleIdOrName);
     const idQuery = new Parse.Query(Parse.Role).equalTo(
       'objectId',

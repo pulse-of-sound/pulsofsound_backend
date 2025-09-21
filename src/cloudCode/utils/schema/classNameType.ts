@@ -12,4 +12,5 @@ export type ClassNameType =
   | 'Employee'
   | 'Test'
   | 'Admin'
+  | 'Role'
   | 'Level';

@@ -2,16 +2,26 @@ import {ParseClass, ParseField} from '../utils/decorator/baseDecorator';
 
 @ParseClass('Admin')
 export default class Admin extends Parse.Object {
-  constructor() {
-    super('Admin');
-  }
+  @ParseField('String', true)
+  username!: string;
+
+  @ParseField('String', true)
+  password!: string;
 
   @ParseField('String', false)
-  name!: string;
+  fullName?: string;
 
   @ParseField('String', false)
-  mobileNumber!: string;
+  role?: string;
 
-  @ParseField('Pointer', false, '_User')
-  user!: Parse.User;
+  @ParseField('String', false)
+  mobile?: string;
+
+  @ParseField('String', false)
+  email?: string;
+
+  @ParseField('Boolean', false)
+  isActive?: boolean;
 }
+
+
