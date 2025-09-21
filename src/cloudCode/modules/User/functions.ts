@@ -471,7 +471,6 @@ class User_ {
   },
 })
 async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
-  // استعلام عن كائن الدور Doctor
   const roleQuery = new Parse.Query(Parse.Role);
   roleQuery.equalTo('name', SystemRoles.DOCTOR);
   const roleObj = await roleQuery.first({ useMasterKey: true });
@@ -484,7 +483,6 @@ async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
   usersQuery.include('role');
   const doctors = await usersQuery.find({ useMasterKey: true });
 
-  // تحويل النتائج إلى شكل مبسط
   const result = doctors.map((user) => ({
     id: user.id,
     fullName: user.get('fullName'),
@@ -496,6 +494,80 @@ async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
 
   return result;
 }
+
+@CloudFunction({
+  methods: ['GET'],
+  validation: {
+    requireUser: true,
+    //requireRoles: [SystemRoles.SUPER_ADMIN]
+  },
+})
+async getAllSpecialists(req: Parse.Cloud.FunctionRequest) {
+  const roleQuery = new Parse.Query(Parse.Role);
+  roleQuery.equalTo('name', SystemRoles.SPECIALIST);
+  const roleObj = await roleQuery.first({ useMasterKey: true });
+
+  if (!roleObj) {
+    throw new Parse.Error(141, `Role '${SystemRoles.SPECIALIST}' not found`);
+  }
+
+  const usersQuery = roleObj.relation('users').query();
+  usersQuery.include('role');
+  const specialists = await usersQuery.find({ useMasterKey: true });
+
+  const result = specialists.map((user) => ({
+    id: user.id,
+    fullName: user.get('fullName'),
+    username: user.get('username'),
+    email: user.get('email'),
+    mobile: user.get('mobile'),
+    role: user.get('role')?.get('name'),
+  }));
+
+  return result;
+}
+@CloudFunction({
+  methods: ['GET'],
+  validation: {
+    requireUser: true,
+  },
+})
+async getAllAdmins(req: Parse.Cloud.FunctionRequest) {
+  const currentUser = req.user;
+
+  const roleQuery = new Parse.Query(Parse.Role);
+  roleQuery.equalTo('name', SystemRoles.SUPER_ADMIN);
+  roleQuery.equalTo('users', currentUser);
+  const isSuperAdmin = await roleQuery.first({ useMasterKey: true });
+
+  if (!isSuperAdmin) {
+throw new Parse.Error(141, 'Access denied. Only SUPER_ADMIN can view admins.');  }
+
+  const adminRoleQuery = new Parse.Query(Parse.Role);
+  adminRoleQuery.equalTo('name', SystemRoles.ADMIN);
+  const adminRole = await adminRoleQuery.first({ useMasterKey: true });
+
+  if (!adminRole) {
+    throw new Parse.Error(141, `Role '${SystemRoles.ADMIN}' not found`);
+  }
+
+  const usersQuery = adminRole.relation('users').query();
+  usersQuery.include('role');
+  const admins = await usersQuery.find({ useMasterKey: true });
+
+  const result = admins.map((user) => ({
+    id: user.id,
+    fullName: user.get('fullName'),
+    username: user.get('username'),
+    email: user.get('email'),
+    mobile: user.get('mobile'),
+    role: user.get('role')?.get('name'),
+  }));
+
+  return result;
+}
+
+
 
   @CloudFunction({
     methods: ['POST'],
@@ -523,6 +595,44 @@ async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
       createdRoles,
     };
   }
+  @CloudFunction({
+  methods: ['DELETE'],
+  validation: {
+    requireUser: true,
+  },
+})
+async deleteDoctor(req: Parse.Cloud.FunctionRequest) {
+  const currentUser = req.user;
+  const doctorId = req.params.doctorId;
+
+  if (!doctorId) {
+    throw new Parse.Error(141, 'Doctor ID must be specified.');
+  }
+
+  const roleQuery = new Parse.Query(Parse.Role);
+  roleQuery.containedIn('name', [SystemRoles.ADMIN, SystemRoles.SUPER_ADMIN]);
+  roleQuery.equalTo('users', currentUser);
+  const hasPermission = await roleQuery.first({ useMasterKey: true });
+
+  if (!hasPermission) {
+    throw new Parse.Error(141, 'You do not have the authority to delete the doctor.');
+  }
+
+  const doctorQuery = new Parse.Query(Parse.User);
+  doctorQuery.equalTo('objectId', doctorId);
+  doctorQuery.equalTo('role', SystemRoles.DOCTOR);
+  const doctor = await doctorQuery.first({ useMasterKey: true });
+
+  if (!doctor) {
+    throw new Parse.Error(101, 'The doctor is not here');
+  }
+
+  // حذف الطبيب
+  await doctor.destroy({ useMasterKey: true });
+
+  return { message: 'The doctor was successfully deleted.' };
+}
+
 }
 
 export default new User_();
