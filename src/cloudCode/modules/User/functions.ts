@@ -164,6 +164,15 @@ class User_ {
 
     const sessionToken = user.getSessionToken();
     user.set('mobileNumber', mobileNumber);
+    const childRole = await new Parse.Query(Parse.Role)
+      .equalTo('name', SystemRoles.CHILD)
+      .first({useMasterKey: true});
+
+    if (!childRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.CHILD}' not found`);
+    }
+
+    user.set('role', childRole.toPointer());
 
     clientRole = await User.assignRoleToUser(user, SystemRoles.CHILD);
 
@@ -185,14 +194,15 @@ class User_ {
         fullName: {required: true, type: String},
         username: {required: true, type: String},
         password: {required: true, type: String},
-        role: {required: true, type: String},
+        role: {required: false, type: String}, // ← لم يعد مطلوبًا
         mobile: {required: false, type: String},
         email: {required: false, type: String},
       },
     },
   })
   async addSystemUser(req: Parse.Cloud.FunctionRequest) {
-    const {fullName, username, password, role, mobile, email} = req.params;
+    const {fullName, username, password, mobile, email} = req.params;
+    const role = req.params.role || SystemRoles.CHILD; // ← القيمة الافتراضية
 
     const validRoles = Object.values(SystemRoles);
     if (!validRoles.includes(role)) {

@@ -13,4 +13,5 @@ export type ClassNameType =
   | 'Test'
   | 'Admin'
   | 'Role'
+  | 'ChildProfile'
   | 'Level';
