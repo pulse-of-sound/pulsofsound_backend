@@ -392,7 +392,6 @@ class User_ {
   //   };
   // }
 
-
   // @CloudFunction({
   //   methods: ['POST'],
   //   validation: {
@@ -464,110 +463,112 @@ class User_ {
   // }
 
   @CloudFunction({
-  methods: ['GET'],
-  validation: {
-    requireUser: true,
-    // requireRoles: [SystemRoles.SUPER_ADMIN]
-  },
-})
-async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
-  const roleQuery = new Parse.Query(Parse.Role);
-  roleQuery.equalTo('name', SystemRoles.DOCTOR);
-  const roleObj = await roleQuery.first({ useMasterKey: true });
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+      // requireRoles: [SystemRoles.SUPER_ADMIN]
+    },
+  })
+  async getAllDoctors(req: Parse.Cloud.FunctionRequest) {
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.DOCTOR);
+    const roleObj = await roleQuery.first({useMasterKey: true});
 
-  if (!roleObj) {
-    throw new Parse.Error(141, `Role '${SystemRoles.DOCTOR}' not found`);
+    if (!roleObj) {
+      throw new Parse.Error(141, `Role '${SystemRoles.DOCTOR}' not found`);
+    }
+
+    const usersQuery = roleObj.relation('users').query();
+    usersQuery.include('role');
+    const doctors = await usersQuery.find({useMasterKey: true});
+
+    const result = doctors.map(user => ({
+      id: user.id,
+      fullName: user.get('fullName'),
+      username: user.get('username'),
+      email: user.get('email'),
+      mobile: user.get('mobile'),
+      role: user.get('role')?.get('name'),
+    }));
+
+    return result;
   }
 
-  const usersQuery = roleObj.relation('users').query();
-  usersQuery.include('role');
-  const doctors = await usersQuery.find({ useMasterKey: true });
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+      //requireRoles: [SystemRoles.SUPER_ADMIN]
+    },
+  })
+  async getAllSpecialists(req: Parse.Cloud.FunctionRequest) {
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.SPECIALIST);
+    const roleObj = await roleQuery.first({useMasterKey: true});
 
-  const result = doctors.map((user) => ({
-    id: user.id,
-    fullName: user.get('fullName'),
-    username: user.get('username'),
-    email: user.get('email'),
-    mobile: user.get('mobile'),
-    role: user.get('role')?.get('name'),
-  }));
+    if (!roleObj) {
+      throw new Parse.Error(141, `Role '${SystemRoles.SPECIALIST}' not found`);
+    }
 
-  return result;
-}
+    const usersQuery = roleObj.relation('users').query();
+    usersQuery.include('role');
+    const specialists = await usersQuery.find({useMasterKey: true});
 
-@CloudFunction({
-  methods: ['GET'],
-  validation: {
-    requireUser: true,
-    //requireRoles: [SystemRoles.SUPER_ADMIN]
-  },
-})
-async getAllSpecialists(req: Parse.Cloud.FunctionRequest) {
-  const roleQuery = new Parse.Query(Parse.Role);
-  roleQuery.equalTo('name', SystemRoles.SPECIALIST);
-  const roleObj = await roleQuery.first({ useMasterKey: true });
+    const result = specialists.map(user => ({
+      id: user.id,
+      fullName: user.get('fullName'),
+      username: user.get('username'),
+      email: user.get('email'),
+      mobile: user.get('mobile'),
+      role: user.get('role')?.get('name'),
+    }));
 
-  if (!roleObj) {
-    throw new Parse.Error(141, `Role '${SystemRoles.SPECIALIST}' not found`);
+    return result;
   }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async getAllAdmins(req: Parse.Cloud.FunctionRequest) {
+    const currentUser = req.user;
 
-  const usersQuery = roleObj.relation('users').query();
-  usersQuery.include('role');
-  const specialists = await usersQuery.find({ useMasterKey: true });
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.SUPER_ADMIN);
+    roleQuery.equalTo('users', currentUser);
+    const isSuperAdmin = await roleQuery.first({useMasterKey: true});
 
-  const result = specialists.map((user) => ({
-    id: user.id,
-    fullName: user.get('fullName'),
-    username: user.get('username'),
-    email: user.get('email'),
-    mobile: user.get('mobile'),
-    role: user.get('role')?.get('name'),
-  }));
+    if (!isSuperAdmin) {
+      throw new Parse.Error(
+        141,
+        'Access denied. Only SUPER_ADMIN can view admins.'
+      );
+    }
 
-  return result;
-}
-@CloudFunction({
-  methods: ['GET'],
-  validation: {
-    requireUser: true,
-  },
-})
-async getAllAdmins(req: Parse.Cloud.FunctionRequest) {
-  const currentUser = req.user;
+    const adminRoleQuery = new Parse.Query(Parse.Role);
+    adminRoleQuery.equalTo('name', SystemRoles.ADMIN);
+    const adminRole = await adminRoleQuery.first({useMasterKey: true});
 
-  const roleQuery = new Parse.Query(Parse.Role);
-  roleQuery.equalTo('name', SystemRoles.SUPER_ADMIN);
-  roleQuery.equalTo('users', currentUser);
-  const isSuperAdmin = await roleQuery.first({ useMasterKey: true });
+    if (!adminRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.ADMIN}' not found`);
+    }
 
-  if (!isSuperAdmin) {
-throw new Parse.Error(141, 'Access denied. Only SUPER_ADMIN can view admins.');  }
+    const usersQuery = adminRole.relation('users').query();
+    usersQuery.include('role');
+    const admins = await usersQuery.find({useMasterKey: true});
 
-  const adminRoleQuery = new Parse.Query(Parse.Role);
-  adminRoleQuery.equalTo('name', SystemRoles.ADMIN);
-  const adminRole = await adminRoleQuery.first({ useMasterKey: true });
+    const result = admins.map(user => ({
+      id: user.id,
+      fullName: user.get('fullName'),
+      username: user.get('username'),
+      email: user.get('email'),
+      mobile: user.get('mobile'),
+      role: user.get('role')?.get('name'),
+    }));
 
-  if (!adminRole) {
-    throw new Parse.Error(141, `Role '${SystemRoles.ADMIN}' not found`);
+    return result;
   }
-
-  const usersQuery = adminRole.relation('users').query();
-  usersQuery.include('role');
-  const admins = await usersQuery.find({ useMasterKey: true });
-
-  const result = admins.map((user) => ({
-    id: user.id,
-    fullName: user.get('fullName'),
-    username: user.get('username'),
-    email: user.get('email'),
-    mobile: user.get('mobile'),
-    role: user.get('role')?.get('name'),
-  }));
-
-  return result;
-}
-
-
 
   @CloudFunction({
     methods: ['POST'],
@@ -596,43 +597,107 @@ throw new Parse.Error(141, 'Access denied. Only SUPER_ADMIN can view admins.'); 
     };
   }
   @CloudFunction({
-  methods: ['DELETE'],
-  validation: {
-    requireUser: true,
-  },
-})
-async deleteDoctor(req: Parse.Cloud.FunctionRequest) {
-  const currentUser = req.user;
-  const doctorId = req.params.doctorId;
+    methods: ['DELETE'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async deleteDoctor(req: Parse.Cloud.FunctionRequest) {
+    const currentUser = req.user;
+    const doctorId = req.params.doctorId;
 
-  if (!doctorId) {
-    throw new Parse.Error(141, 'Doctor ID must be specified.');
+    if (!doctorId) {
+      throw new Parse.Error(141, 'Doctor ID must be specified.');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.containedIn('name', [SystemRoles.ADMIN, SystemRoles.SUPER_ADMIN]);
+    roleQuery.equalTo('users', currentUser);
+    const hasPermission = await roleQuery.first({useMasterKey: true});
+
+    if (!hasPermission) {
+      throw new Parse.Error(
+        141,
+        'You do not have the authority to delete the doctor.'
+      );
+    }
+
+    const doctorQuery = new Parse.Query(Parse.User);
+    doctorQuery.equalTo('objectId', doctorId);
+    const doctor = await doctorQuery.first({useMasterKey: true});
+
+    if (!doctor) {
+      throw new Parse.Error(101, 'No user found with this ID.');
+    }
+
+    const doctorRole = await new Parse.Query(Parse.Role)
+      .equalTo('name', SystemRoles.DOCTOR)
+      .first({useMasterKey: true});
+
+    if (!doctorRole) {
+      throw new Parse.Error(141, 'Doctor role not found.');
+    }
+
+    const userRolePointer = doctor.get('role');
+    if (!userRolePointer || userRolePointer.id !== doctorRole.id) {
+      throw new Parse.Error(141, 'User is not a doctor.');
+    }
+
+    await doctor.destroy({useMasterKey: true});
+
+    return {message: 'The doctor was successfully deleted.'};
   }
+  @CloudFunction({
+    methods: ['DELETE'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async deleteSpecialist(req: Parse.Cloud.FunctionRequest) {
+    const currentUser = req.user;
+    const specialistId = req.params.specialistId;
 
-  const roleQuery = new Parse.Query(Parse.Role);
-  roleQuery.containedIn('name', [SystemRoles.ADMIN, SystemRoles.SUPER_ADMIN]);
-  roleQuery.equalTo('users', currentUser);
-  const hasPermission = await roleQuery.first({ useMasterKey: true });
+    if (!specialistId) {
+      throw new Parse.Error(141, 'Specialist ID must be specified.');
+    }
 
-  if (!hasPermission) {
-    throw new Parse.Error(141, 'You do not have the authority to delete the doctor.');
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.containedIn('name', [SystemRoles.ADMIN, SystemRoles.SUPER_ADMIN]);
+    roleQuery.equalTo('users', currentUser);
+    const hasPermission = await roleQuery.first({useMasterKey: true});
+
+    if (!hasPermission) {
+      throw new Parse.Error(
+        141,
+        'You do not have the authority to delete the specialist.'
+      );
+    }
+
+    // استعلام المستخدم
+    const specialistQuery = new Parse.Query(Parse.User);
+    specialistQuery.equalTo('objectId', specialistId);
+    const specialist = await specialistQuery.first({useMasterKey: true});
+
+    if (!specialist) {
+      throw new Parse.Error(101, 'No user found with this ID.');
+    }
+
+    const specialistRole = await new Parse.Query(Parse.Role)
+      .equalTo('name', SystemRoles.SPECIALIST)
+      .first({useMasterKey: true});
+
+    if (!specialistRole) {
+      throw new Parse.Error(141, 'Specialist role not found.');
+    }
+
+    const userRolePointer = specialist.get('role');
+    if (!userRolePointer || userRolePointer.id !== specialistRole.id) {
+      throw new Parse.Error(141, 'User is not a specialist.');
+    }
+    await specialist.destroy({useMasterKey: true});
+
+    return {message: 'The specialist was successfully deleted.'};
   }
-
-  const doctorQuery = new Parse.Query(Parse.User);
-  doctorQuery.equalTo('objectId', doctorId);
-  doctorQuery.equalTo('role', SystemRoles.DOCTOR);
-  const doctor = await doctorQuery.first({ useMasterKey: true });
-
-  if (!doctor) {
-    throw new Parse.Error(101, 'The doctor is not here');
-  }
-
-  // حذف الطبيب
-  await doctor.destroy({ useMasterKey: true });
-
-  return { message: 'The doctor was successfully deleted.' };
-}
-
 }
 
 export default new User_();
