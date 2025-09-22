@@ -673,7 +673,6 @@ class User_ {
       );
     }
 
-    // استعلام المستخدم
     const specialistQuery = new Parse.Query(Parse.User);
     specialistQuery.equalTo('objectId', specialistId);
     const specialist = await specialistQuery.first({useMasterKey: true});
@@ -697,6 +696,53 @@ class User_ {
     await specialist.destroy({useMasterKey: true});
 
     return {message: 'The specialist was successfully deleted.'};
+  }
+  @CloudFunction({
+    methods: ['DELETE'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async deleteAdmin(req: Parse.Cloud.FunctionRequest) {
+    const currentUser = req.user;
+    const adminId = req.params.adminId;
+
+    if (!adminId) {
+      throw new Parse.Error(141, 'Admin ID must be specified.');
+    }
+
+    const superAdminRoleQuery = new Parse.Query(Parse.Role);
+    superAdminRoleQuery.equalTo('name', SystemRoles.SUPER_ADMIN);
+    superAdminRoleQuery.equalTo('users', currentUser);
+    const isSuperAdmin = await superAdminRoleQuery.first({useMasterKey: true});
+
+    if (!isSuperAdmin) {
+      throw new Parse.Error(141, 'Only Super Admins can delete Admins.');
+    }
+
+    const adminQuery = new Parse.Query(Parse.User);
+    adminQuery.equalTo('objectId', adminId);
+    const adminUser = await adminQuery.first({useMasterKey: true});
+
+    if (!adminUser) {
+      throw new Parse.Error(101, 'No user found with this ID.');
+    }
+
+    const adminRole = await new Parse.Query(Parse.Role)
+      .equalTo('name', SystemRoles.ADMIN)
+      .first({useMasterKey: true});
+
+    if (!adminRole) {
+      throw new Parse.Error(141, 'Admin role not found.');
+    }
+
+    const userRolePointer = adminUser.get('role');
+    if (!userRolePointer || userRolePointer.id !== adminRole.id) {
+      throw new Parse.Error(141, 'User is not an Admin.');
+    }
+    await adminUser.destroy({useMasterKey: true});
+
+    return {message: 'The Admin was successfully deleted.'};
   }
 }
 
