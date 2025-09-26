@@ -13,5 +13,8 @@ export type ClassNameType =
   | 'Test'
   | 'Admin'
   | 'Role'
+  | 'ChildLevel'
+  | 'PlacementTestQuestion'
+  | 'PlacementTestCorrectAnswer'
   | 'ChildProfile'
   | 'Level';

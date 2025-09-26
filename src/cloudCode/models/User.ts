@@ -80,12 +80,7 @@ export default class User extends Parse.User {
 
     const flattenedObject = {
       ...userObject,
-      role: [
-        {
-          id: assignedRole?.id,
-          name: assignedRole?.get('name'),
-        },
-      ],
+      role: assignedRole?.toPointer(),
     };
 
     return flattenedObject;
