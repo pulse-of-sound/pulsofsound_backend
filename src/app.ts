@@ -157,19 +157,40 @@ function extractMasterKey(
 }
 
 // Middleware to restrict access to specific routes
+// function restrictRoutes(req: any, res: Response, next: NextFunction) {
+//   const allowedRoutes = ['/functions', '/health', '/serverInfo', '/files'];
+
+//   if (req['x-master-key'] === process.env.masterKey) {
+//     return next();
+//   }
+//   // if (
+//   //   !req['x-master-key'] &&
+//   //   req.path.startsWith('/files') &&
+//   //   req.method !== 'GET'
+//   // ) {
+//   //   throw res.status(403).json({message: `Not allowed`});
+//   // }
+
+//   if (!allowedRoutes.some(route => req.path.startsWith(route))) {
+//     console.log(allowedRoutes);
+//     console.log(req.path);
+//     throw res.status(403).json({message: `Route not allowed`});
+//   }
+
+//   next();
+// }
 function restrictRoutes(req: any, res: Response, next: NextFunction) {
-  const allowedRoutes = ['/functions', '/health', '/serverInfo', '/files'];
+  const allowedRoutes = [
+    '/functions',
+    '/health',
+    '/serverInfo',
+    '/files',
+    '/classes',
+  ];
 
   if (req['x-master-key'] === process.env.masterKey) {
     return next();
   }
-  // if (
-  //   !req['x-master-key'] &&
-  //   req.path.startsWith('/files') &&
-  //   req.method !== 'GET'
-  // ) {
-  //   throw res.status(403).json({message: `Not allowed`});
-  // }
 
   if (!allowedRoutes.some(route => req.path.startsWith(route))) {
     console.log(allowedRoutes);

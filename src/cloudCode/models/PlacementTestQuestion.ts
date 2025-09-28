@@ -6,18 +6,18 @@ export default class PlacementTestQuestion extends Parse.Object {
     super('PlacementTestQuestion');
   }
 
-  @ParseField('File', false)
-  question_image!: Parse.File;
+  @ParseField('String', false)
+  question_image_url!: string;
 
-  @ParseField('File', false)
-  option_a_image!: Parse.File;
+  @ParseField('String', false)
+  option_a_image_url!: string;
 
-  @ParseField('File', false)
-  option_b_image!: Parse.File;
+  @ParseField('String', false)
+  option_b_image_url!: string;
 
-  @ParseField('File', false)
-  option_c_image!: Parse.File;
+  @ParseField('String', false)
+  option_c_image_url!: string;
 
-  @ParseField('File', false)
-  option_d_image!: Parse.File;
+  @ParseField('String', false)
+  option_d_image_url!: string;
 }

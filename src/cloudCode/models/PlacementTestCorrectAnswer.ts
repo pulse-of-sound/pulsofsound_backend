@@ -6,10 +6,9 @@ export default class PlacementTestCorrectAnswer extends Parse.Object {
   constructor() {
     super('PlacementTestCorrectAnswer');
   }
+  @ParseField('String', false)
+  correct_option!: string;
 
   @ParseField('Pointer', false, 'PlacementTestQuestion')
   question!: PlacementTestQuestion;
-
-  @ParseField('String', false)
-  correct_option!: string;
 }
