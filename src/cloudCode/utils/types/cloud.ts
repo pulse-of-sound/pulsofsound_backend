@@ -14,8 +14,15 @@ export interface RouteConfig {
   requireAllRoles?: boolean; // If true, user must have ALL roles (not just any)
   customErrorMessage?: string;
 }
+
 export interface CloudFunctionMetadata {
   name: string;
   config: RouteConfig;
   handler: (request: Parse.Cloud.FunctionRequest) => Promise<any> | any;
 }
+
+// ✅ النوع الذي تحتاجينه للتحقق من الحقول داخل @CloudFunction
+export type ValidatorField = {
+  type: 'string' | 'number' | 'boolean' | 'object' | 'array';
+  required?: boolean;
+};
