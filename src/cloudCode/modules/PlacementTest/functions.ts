@@ -138,9 +138,9 @@ class PlacementTestFunctions {
         questionId: string;
         selectedOption: 'A' | 'B' | 'C' | 'D';
       }[];
-      console.log('📦 Incoming answers:', answers);
-      console.log('📌 Type of answers:', typeof answers);
-      console.log('📌 Is Array:', Array.isArray(answers));
+      console.log(' Incoming answers:', answers);
+      console.log(' Type of answers:', typeof answers);
+      console.log(' Is Array:', Array.isArray(answers));
 
       if (!user) {
         throw {

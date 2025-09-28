@@ -3,11 +3,11 @@ import {ParseClass, ParseField} from '../utils/decorator/baseDecorator';
 
 @ParseClass('Level', {
   clp: {
-    find: '*',
-    get: '*',
-    create: '*',
-    update: '*',
-    delete: '*',
+    find: {'*': true},
+    get: {'*': true},
+    create: {'*': true},
+    update: {'*': true},
+    delete: {'*': true},
   },
 })
 export default class Level extends BaseModel {
@@ -18,6 +18,15 @@ export default class Level extends BaseModel {
   @ParseField('String', true)
   name!: string;
 
-  @ParseField('String', true)
-  code!: string;
+  @ParseField('String', false)
+  description?: string;
+
+  @ParseField('Number', true)
+  order!: number;
+
+  @ParseField('Date', false)
+  created_at?: Date;
+
+  @ParseField('Date', false)
+  updated_at?: Date;
 }

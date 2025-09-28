@@ -21,7 +21,6 @@ export interface CloudFunctionMetadata {
   handler: (request: Parse.Cloud.FunctionRequest) => Promise<any> | any;
 }
 
-// ✅ النوع الذي تحتاجينه للتحقق من الحقول داخل @CloudFunction
 export type ValidatorField = {
   type: 'string' | 'number' | 'boolean' | 'object' | 'array';
   required?: boolean;

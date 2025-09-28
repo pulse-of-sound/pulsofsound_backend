@@ -194,7 +194,7 @@ class User_ {
         fullName: {required: true, type: String},
         username: {required: true, type: String},
         password: {required: true, type: String},
-        role: {required: false, type: String}, // ← لم يعد مطلوبًا
+        role: {required: false, type: String},
         mobile: {required: false, type: String},
         email: {required: false, type: String},
       },
