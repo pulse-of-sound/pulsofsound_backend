@@ -17,4 +17,6 @@ export type ClassNameType =
   | 'PlacementTestQuestion'
   | 'PlacementTestCorrectAnswer'
   | 'ChildProfile'
+  | 'TrainingQuestion'
+  | 'TrainingQuestionCorrectAnswer'
   | 'Level';
