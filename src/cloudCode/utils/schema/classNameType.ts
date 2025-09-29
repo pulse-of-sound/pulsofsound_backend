@@ -19,4 +19,7 @@ export type ClassNameType =
   | 'ChildProfile'
   | 'TrainingQuestion'
   | 'TrainingQuestionCorrectAnswer'
+  | 'ResearchCategories'
+  | 'ResearchPosts'
+  | 'PostCategories'
   | 'Level';
