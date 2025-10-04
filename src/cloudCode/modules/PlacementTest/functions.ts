@@ -1,9 +1,7 @@
 import {CloudFunction} from '../../utils/Registry/decorators';
 import PlacementTestQuestion from '../../models/PlacementTestQuestion';
-import {ValidatorField} from '../../utils/types/cloud';
 import PlacementTestCorrectAnswer from '../../models/PlacementTestCorrectAnswer';
 class PlacementTestFunctions {
-  //get all Questions
   @CloudFunction({
     methods: ['GET'],
     validation: {
@@ -15,10 +13,7 @@ class PlacementTestFunctions {
     try {
       const user = req.user;
       if (!user) {
-        throw {
-          codeStatus: 103,
-          message: 'User context is missing',
-        };
+        throw {codeStatus: 103, message: 'User context is missing'};
       }
 
       const rolePointer = user.get('role');
@@ -28,10 +23,7 @@ class PlacementTestFunctions {
 
       const roleName = role?.get('name');
       if (roleName !== 'Child') {
-        throw {
-          codeStatus: 102,
-          message: 'User is not a Child',
-        };
+        throw {codeStatus: 102, message: 'User is not a Child'};
       }
 
       const query = new Parse.Query(PlacementTestQuestion);
@@ -40,12 +32,12 @@ class PlacementTestFunctions {
 
       const formatted = results.map(q => ({
         id: q.id,
-        question_image_url: q.get('question_image_url'),
+        question_image_url: q.get('question_image_url')?.url(),
         options: {
-          A: q.get('option_a_image_url'),
-          B: q.get('option_b_image_url'),
-          C: q.get('option_c_image_url'),
-          D: q.get('option_d_image_url'),
+          A: q.get('option_a_image_url')?.url(),
+          B: q.get('option_b_image_url')?.url(),
+          C: q.get('option_c_image_url')?.url(),
+          D: q.get('option_d_image_url')?.url(),
         },
       }));
 
@@ -58,7 +50,6 @@ class PlacementTestFunctions {
       };
     }
   }
-  //get Question by Index
 
   @CloudFunction({
     methods: ['POST'],
@@ -69,16 +60,10 @@ class PlacementTestFunctions {
   async getPlacementTestQuestionByIndex(req: Parse.Cloud.FunctionRequest) {
     try {
       const user = req.user;
-      console.log('📦 Incoming params:', req.params);
-      console.log('📌 Type of index:', typeof req.params.index);
-
       const index = req.params.index;
 
       if (!user) {
-        throw {
-          codeStatus: 103,
-          message: 'User context is missing',
-        };
+        throw {codeStatus: 103, message: 'User context is missing'};
       }
 
       const rolePointer = user.get('role');
@@ -88,33 +73,26 @@ class PlacementTestFunctions {
 
       const roleName = role?.get('name');
       if (roleName !== 'Child') {
-        throw {
-          codeStatus: 102,
-          message: 'User is not a Child',
-        };
+        throw {codeStatus: 102, message: 'User is not a Child'};
       }
 
       const query = new Parse.Query(PlacementTestQuestion);
       query.ascending('createdAt');
       query.skip(index);
       query.limit(1);
-
       const result = await query.first({useMasterKey: true});
       if (!result) {
-        throw {
-          codeStatus: 104,
-          message: 'No question found at this index',
-        };
+        throw {codeStatus: 104, message: 'No question found at this index'};
       }
 
       return {
         id: result.id,
-        question_image_url: result.get('question_image_url'),
+        question_image_url: result.get('question_image_url')?.url(),
         options: {
-          A: result.get('option_a_image_url'),
-          B: result.get('option_b_image_url'),
-          C: result.get('option_c_image_url'),
-          D: result.get('option_d_image_url'),
+          A: result.get('option_a_image_url')?.url(),
+          B: result.get('option_b_image_url')?.url(),
+          C: result.get('option_c_image_url')?.url(),
+          D: result.get('option_d_image_url')?.url(),
         },
       };
     } catch (error: any) {
@@ -129,63 +107,40 @@ class PlacementTestFunctions {
     methods: ['POST'],
     validation: {
       requireUser: true,
+      fields: {
+        answers: {type: Array, required: true},
+      },
     },
   })
   async submitPlacementTestAnswers(req: Parse.Cloud.FunctionRequest) {
-    try {
-      const user = req.user;
-      const answers = req.params.answers as {
-        questionId: string;
-        selectedOption: 'A' | 'B' | 'C' | 'D';
-      }[];
-      console.log(' Incoming answers:', answers);
-      console.log(' Type of answers:', typeof answers);
-      console.log(' Is Array:', Array.isArray(answers));
+    const user = req.user;
+    if (!user) throw new Error('User is not logged in');
 
-      if (!user) {
-        throw {
-          codeStatus: 103,
-          message: 'User context is missing',
-        };
-      }
+    const {answers} = req.params;
+    let correctCount = 0;
 
-      let correctCount = 0;
+    for (const {questionId, selectedOption} of answers) {
+      const questionPointer = new Parse.Object('PlacementTestQuestion');
+      questionPointer.id = questionId;
 
-      for (const answer of answers) {
-        const correct = await new Parse.Query(PlacementTestCorrectAnswer)
-          .equalTo(
-            'question',
-            new Parse.Object('PlacementTestQuestion').set(
-              'objectId',
-              answer.questionId
-            )
-          )
-          .first({useMasterKey: true});
+      const answerQuery = new Parse.Query(PlacementTestCorrectAnswer);
+      answerQuery.equalTo('question', questionPointer);
+      const correctAnswer = await answerQuery.first({useMasterKey: true});
 
-        if (
-          correct &&
-          correct.get('correct_option') === answer.selectedOption
-        ) {
-          correctCount++;
-        }
-      }
+      const isCorrect =
+        correctAnswer?.get('correct_option')?.trim().toUpperCase() ===
+        selectedOption.trim().toUpperCase();
 
-      const score = Math.round((correctCount / answers.length) * 100);
-      user.set('placement_test_score', score);
-      await user.save(null, {useMasterKey: true});
-
-      return {
-        correctCount,
-        score,
-        passed: score >= 70,
-      };
-    } catch (error: any) {
-      console.error('Error in submitPlacementTestAnswers:', error);
-      throw {
-        codeStatus: error.codeStatus || 1000,
-        message: error.message || 'Failed to submit placement test answers',
-      };
+      if (isCorrect) correctCount++;
     }
+
+    const score = Math.round((correctCount / answers.length) * 100);
+    const passed = score >= 70;
+
+    user.set('placement_test_score', score);
+    await user.save(null, {useMasterKey: true});
+
+    return {correctCount, score, passed};
   }
 }
 

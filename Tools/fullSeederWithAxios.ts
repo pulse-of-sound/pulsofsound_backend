@@ -3,13 +3,11 @@ import path from 'path';
 import axios from 'axios';
 require('dotenv').config();
 
-// إعدادات الاتصال بـ Parse Server
 const appId = process.env.appId!;
 const restAPIKey = process.env.restAPIKey!;
 const masterKey = process.env.masterKey!;
 const serverURL = process.env.serverURL!;
 
-// مسار الصور
 const folderPath = 'C:/Users/DELL/Desktop/Pulse Of Sound/PlacementTestQuestion';
 const correctAnswers = [
   'C', 'B', 'B', 'A', 'D',
@@ -17,8 +15,7 @@ const correctAnswers = [
   'A', 'B', 'D', 'D', 'C'
 ];
 
-// رفع صورة باستخدام axios وإرجاع رابطها
-async function uploadImage(fileName: string): Promise<string> {
+async function uploadParseFile(fileName: string): Promise<{ name: string }> {
   const filePath = path.join(folderPath, fileName);
   const data = fs.readFileSync(filePath);
 
@@ -31,17 +28,31 @@ async function uploadImage(fileName: string): Promise<string> {
     },
   });
 
-  return response.data.url;
+  return { name: response.data.name };
 }
 
-// حفظ سؤال في قاعدة البيانات
-async function saveQuestion(images: Record<string, string>): Promise<string> {
+async function saveQuestion(images: Record<string, { name: string }>): Promise<string> {
   const response = await axios.post(`${serverURL}/classes/PlacementTestQuestion`, {
-    question_image_url: images.question,
-    option_a_image_url: images.a,
-    option_b_image_url: images.b,
-    option_c_image_url: images.c,
-    option_d_image_url: images.d,
+    question_image_url: {
+      __type: 'File',
+      name: images.question.name,
+    },
+    option_a_image_url: {
+      __type: 'File',
+      name: images.a.name,
+    },
+    option_b_image_url: {
+      __type: 'File',
+      name: images.b.name,
+    },
+    option_c_image_url: {
+      __type: 'File',
+      name: images.c.name,
+    },
+    option_d_image_url: {
+      __type: 'File',
+      name: images.d.name,
+    },
   }, {
     headers: {
       'X-Parse-Application-Id': appId,
@@ -54,7 +65,6 @@ async function saveQuestion(images: Record<string, string>): Promise<string> {
   return response.data.objectId;
 }
 
-// حفظ الإجابة الصحيحة وربطها بالسؤال
 async function saveAnswer(questionId: string, correctOption: string): Promise<void> {
   await axios.post(`${serverURL}/classes/PlacementTestCorrectAnswer`, {
     correct_option: correctOption,
@@ -73,32 +83,31 @@ async function saveAnswer(questionId: string, correctOption: string): Promise<vo
   });
 }
 
-// تنفيذ الإدخال الكامل
 async function seedAll() {
   for (let i = 1; i <= 15; i++) {
-    console.log(`🔄 Processing question ${i}`);
+    console.log(` Processing question ${i}`);
 
     try {
       const images = {
-        question: await uploadImage(`q${i}.jpg`),
-        a: await uploadImage(`q${i}_a.jpg`),
-        b: await uploadImage(`q${i}_b.jpg`),
-        c: await uploadImage(`q${i}_c.jpg`),
-        d: await uploadImage(`q${i}_d.jpg`),
+        question: await uploadParseFile(`q${i}.jpg`),
+        a: await uploadParseFile(`q${i}_a.jpg`),
+        b: await uploadParseFile(`q${i}_b.jpg`),
+        c: await uploadParseFile(`q${i}_c.jpg`),
+        d: await uploadParseFile(`q${i}_d.jpg`),
       };
 
       const questionId = await saveQuestion(images);
       await saveAnswer(questionId, correctAnswers[i - 1]);
 
-      console.log(`✅ Question ${i} saved`);
+      console.log(` Question ${i} saved`);
     } catch (error: any) {
-      console.error(`❌ Error in question ${i}:`, error.response?.data || error.message);
+      console.error(` Error in question ${i}:`, error.response?.data || error.message);
     }
   }
 
-  console.log('🎉 All questions and answers seeded successfully!');
+  console.log(' All questions and answers seeded successfully!');
 }
 
 seedAll().catch(err => {
-  console.error('❌ Fatal Error:', err);
+  console.error(' Fatal Error:', err);
 });

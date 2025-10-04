@@ -28,7 +28,7 @@ const correctAnswers = [
   'B',
 ];
 
-async function uploadImage(fileName: string): Promise<string> {
+async function uploadParseFile(fileName: string): Promise<{name: string}> {
   const filePath = path.join(folderPath, fileName);
   const data = fs.readFileSync(filePath);
 
@@ -41,19 +41,31 @@ async function uploadImage(fileName: string): Promise<string> {
     },
   });
 
-  return response.data.url;
+  return {name: response.data.name};
 }
 
 async function saveTrainingQuestion(
-  images: Record<string, string>
+  images: Record<string, {name: string}>
 ): Promise<string> {
   const response = await axios.post(
     `${serverURL}/classes/TrainingQuestion`,
     {
-      question_image_url: images.question,
-      option_a: images.a,
-      option_b: images.b,
-      option_c: images.c,
+      question_image_url: {
+        __type: 'File',
+        name: images.question.name,
+      },
+      option_a: {
+        __type: 'File',
+        name: images.a.name,
+      },
+      option_b: {
+        __type: 'File',
+        name: images.b.name,
+      },
+      option_c: {
+        __type: 'File',
+        name: images.c.name,
+      },
       created_at: {
         __type: 'Date',
         iso: new Date().toISOString(),
@@ -109,34 +121,33 @@ async function saveCorrectAnswer(
   );
 }
 
-// تنفيذ الإدخال الكامل
 async function seedAllTrainingQuestions() {
   for (let i = 1; i <= 15; i++) {
-    console.log(`🔄 Processing training question ${i}`);
+    console.log(` Processing training question ${i}`);
 
     try {
       const images = {
-        question: await uploadImage(`q${i}.jpg`),
-        a: await uploadImage(`q${i}_a.jpg`),
-        b: await uploadImage(`q${i}_b.jpg`),
-        c: await uploadImage(`q${i}_c.jpg`),
+        question: await uploadParseFile(`q${i}.jpg`),
+        a: await uploadParseFile(`q${i}_a.jpg`),
+        b: await uploadParseFile(`q${i}_b.jpg`),
+        c: await uploadParseFile(`q${i}_c.jpg`),
       };
 
       const questionId = await saveTrainingQuestion(images);
       await saveCorrectAnswer(questionId, correctAnswers[i - 1]);
 
-      console.log(`✅ Training question ${i} saved`);
+      console.log(` Training question ${i} saved`);
     } catch (error: any) {
       console.error(
-        `❌ Error in training question ${i}:`,
+        ` Error in training question ${i}:`,
         error.response?.data || error.message
       );
     }
   }
 
-  console.log('🎉 All training questions and answers seeded successfully!');
+  console.log(' All training questions and answers seeded successfully!');
 }
 
 seedAllTrainingQuestions().catch(err => {
-  console.error('❌ Fatal Error:', err);
+  console.error(' Fatal Error:', err);
 });

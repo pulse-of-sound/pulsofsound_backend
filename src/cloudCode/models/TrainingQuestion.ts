@@ -15,17 +15,17 @@ export default class TrainingQuestion extends BaseModel {
     super('TrainingQuestion');
   }
 
-  @ParseField('String', true)
-  question_image_url!: string;
+  @ParseField('File', true)
+  question_image_url!: Parse.File;
 
-  @ParseField('String', true)
-  option_a!: string;
+  @ParseField('File', true)
+  option_a!: Parse.File;
 
-  @ParseField('String', true)
-  option_b!: string;
+  @ParseField('File', true)
+  option_b!: Parse.File;
 
-  @ParseField('String', true)
-  option_c!: string;
+  @ParseField('File', true)
+  option_c!: Parse.File;
 
   @ParseField('Date', false)
   created_at?: Date;
