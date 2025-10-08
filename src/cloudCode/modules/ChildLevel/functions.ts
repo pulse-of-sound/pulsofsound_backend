@@ -12,18 +12,10 @@ class ChildLevelFunctions {
     },
   })
   async assignChildLevelIfPassed(req: Parse.Cloud.FunctionRequest) {
-    const user = req.user;
-    if (!user) {
-      throw {
-        codeStatus: 103,
-        message: 'User context is missing',
-      };
-    }
-
-    const score = user.get('placement_test_score');
+    const score = req.user!.get('placement_test_score');
     if (typeof score !== 'number') {
       throw {
-        codeStatus: 104,
+        codeStatus: 5002,
         message: 'Placement test score is missing or invalid',
       };
     }
@@ -36,12 +28,12 @@ class ChildLevelFunctions {
     }
 
     const childProfile = await new Parse.Query(ChildProfile)
-      .equalTo('user', user)
+      .equalTo('user', req.user)
       .first({useMasterKey: true});
 
     if (!childProfile) {
       throw {
-        codeStatus: 105,
+        codeStatus: 5003,
         message: 'ChildProfile not found for this user',
       };
     }
@@ -52,7 +44,7 @@ class ChildLevelFunctions {
 
     if (!firstLevel) {
       throw {
-        codeStatus: 106,
+        codeStatus: 5004,
         message: 'No levels found in system',
       };
     }
@@ -60,8 +52,8 @@ class ChildLevelFunctions {
     const existing = await new Parse.Query(ChildLevel)
       .equalTo('child', childProfile)
       .first({useMasterKey: true});
+
     const childLevel = existing || new ChildLevel();
-    // childLevel.child = childProfile
     childLevel.set('child', childProfile);
     childLevel.set('level', firstLevel);
     childLevel.set('current_game_order', 1);
@@ -69,8 +61,12 @@ class ChildLevelFunctions {
     const [error, data] = await catchError(
       childLevel.save(null, {useMasterKey: true})
     );
+
     if (error) {
-      throw 'Error Saving Data';
+      throw {
+        codeStatus: 5005,
+        message: 'Error saving ChildLevel data',
+      };
     }
 
     return data;

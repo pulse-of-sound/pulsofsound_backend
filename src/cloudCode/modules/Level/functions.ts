@@ -1,5 +1,6 @@
 import {CloudFunction} from '../../utils/Registry/decorators';
 import Level from '../../models/Level';
+// import LevelGame from '../../models/LevelGame';
 
 class LevelFunctions {
   @CloudFunction({
@@ -48,6 +49,32 @@ class LevelFunctions {
         message: error.message || 'Failed to add level',
       };
     }
+  }
+
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: false,
+      fields: {},
+    },
+  })
+  async getAllLevels(req: Parse.Cloud.FunctionRequest) {
+    const query = new Parse.Query(Level);
+    query.ascending('order');
+
+    const results = await query.find({useMasterKey: true});
+
+    const levels = results.map(level => ({
+      objectId: level.id,
+      name: level.get('name'),
+      description: level.get('description'),
+      order: level.get('order'),
+    }));
+
+    return {
+      message: 'All levels fetched successfully',
+      levels,
+    };
   }
 }
 
