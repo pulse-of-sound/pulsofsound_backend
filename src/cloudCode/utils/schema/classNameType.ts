@@ -20,4 +20,5 @@ export type ClassNameType =
   | 'ResearchPosts'
   | 'PostCategories'
   | 'Level'
-  | 'LevelGame';
+  | 'LevelGame'
+  | 'GameQuestion';
