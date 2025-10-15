@@ -21,4 +21,7 @@ export type ClassNameType =
   | 'PostCategories'
   | 'Level'
   | 'LevelGame'
+  | 'AppointmentPlan'
+  | 'Appointment'
+  | 'Invoice'
   | 'GameQuestion';
