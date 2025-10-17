@@ -18,10 +18,10 @@ export default class ChatMessage extends BaseModel {
   @ParseField('Pointer', true, 'ChatGroup')
   chat_group_id!: Parse.Object;
 
-  @ParseField('Pointer', true, 'User')
+  @ParseField('Pointer', true, '_User')
   send_id!: Parse.Object;
 
-  @ParseField('Pointer', false, 'User')
+  @ParseField('Pointer', false, '_User')
   receive_id?: Parse.Object;
 
   @ParseField('Pointer', false, 'ChildProfile')

@@ -43,6 +43,17 @@ class ChatGroupFunctions {
         };
       }
 
+      const existingGroup = await new Parse.Query(ChatGroup)
+        .equalTo('appointment_id', appointment)
+        .first({useMasterKey: true});
+
+      if (existingGroup) {
+        return {
+          message: 'Chat group already exists for this appointment',
+          chat_group_id: existingGroup.id,
+        };
+      }
+
       const chatGroup = new ChatGroup();
       chatGroup.set('appointment_id', appointment);
       chatGroup.set('child_id', appointment.get('child_id'));
@@ -66,6 +77,101 @@ class ChatGroupFunctions {
       throw {
         codeStatus: error.codeStatus || 1009,
         message: error.message || 'Failed to create chat group for appointment',
+      };
+    }
+  }
+
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async getMyChatGroups(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const user = req.user;
+      if (!user) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const participantQuery = new Parse.Query(ChatGroupParticipant);
+      participantQuery.equalTo('user_id', user);
+      participantQuery.include([
+        'chat_group_id',
+        'chat_group_id.appointment_id',
+        'chat_group_id.child_id',
+      ]);
+      participantQuery.limit(50);
+
+      const results = await participantQuery.find({useMasterKey: true});
+
+      const chatGroups = results
+        .map(participant => {
+          const group = participant.get('chat_group_id');
+          return group?.toJSON();
+        })
+        .filter(Boolean);
+
+      return {
+        count: chatGroups.length,
+        chat_groups: chatGroups,
+      };
+    } catch (error: any) {
+      console.error('Error in getMyChatGroups:', error);
+      throw {
+        codeStatus: error.codeStatus || 1014,
+        message: error.message || 'Failed to fetch chat groups',
+      };
+    }
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+      fields: {
+        chat_group_id: {type: String, required: true},
+      },
+    },
+  })
+  async getChatParticipants(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const user = req.user;
+      if (!user) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const {chat_group_id} = req.params;
+
+      const query = new Parse.Query(ChatGroupParticipant);
+      query.equalTo(
+        'chat_group_id',
+        new Parse.Object('ChatGroup', {id: chat_group_id})
+      );
+      query.include('user_id');
+      query.limit(20);
+
+      const results = await query.find({useMasterKey: true});
+
+      const participants = results.map(item => {
+        const participant = item.get('user_id');
+        return {
+          objectId: participant.id,
+          username: participant.get('username'),
+          email: participant.get('email'),
+          fcm_token: participant.get('fcm_token'),
+          createdAt: participant.get('createdAt'),
+        };
+      });
+
+      return {
+        count: participants.length,
+        participants,
+      };
+    } catch (error: any) {
+      console.error('Error in getChatParticipants:', error);
+      throw {
+        codeStatus: error.codeStatus || 1015,
+        message: error.message || 'Failed to fetch chat participants',
       };
     }
   }
