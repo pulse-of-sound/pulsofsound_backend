@@ -1,6 +1,7 @@
 import {CloudFunction} from '../../utils/Registry/decorators';
 import Appointment from '../../models/Appointment';
 import Invoice from '../../models/Invoice';
+import Notifications from '../../models/Notifications';
 
 class InvoiceFunctions {
   @CloudFunction({
@@ -87,18 +88,32 @@ class InvoiceFunctions {
         throw {codeStatus: 105, message: 'Appointment not linked to invoice'};
       }
 
-      // تحديث حالة الفاتورة
+      const provider = appointment.get('provider_id');
+      if (!provider) {
+        throw {codeStatus: 106, message: 'Appointment missing provider'};
+      }
+
       invoice.set('status', 'paid');
       invoice.set('updated_at', new Date());
       await invoice.save(null, {useMasterKey: true});
 
-      // تحديث حالة الموعد
       appointment.set('status', 'pending_provider_approval');
       appointment.set('updated_at', new Date());
       await appointment.save(null, {useMasterKey: true});
 
+      const notification = new Notifications();
+      notification.set('user_id', provider);
+      notification.set('type', 'appointment_request');
+      notification.set('title', 'طلب موعد جديد');
+      notification.set('body', 'لديك طلب موعد جديد بانتظار الموافقة');
+      notification.set('appointment_id', appointment);
+      notification.set('is_read', false);
+      notification.set('created_at', new Date());
+      await notification.save(null, {useMasterKey: true});
+
       return {
-        message: 'Invoice confirmed and appointment sent to provider',
+        message:
+          'Invoice confirmed, appointment updated, and provider notified',
         invoice: invoice.toJSON(),
         appointment_status: appointment.get('status'),
       };

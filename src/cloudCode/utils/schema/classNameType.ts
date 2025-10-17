@@ -24,4 +24,8 @@ export type ClassNameType =
   | 'AppointmentPlan'
   | 'Appointment'
   | 'Invoice'
+  | 'ChatGroupParticipant'
+  | 'ChatGroup'
+  | 'ChatMessage'
+  | 'Notifications'
   | 'GameQuestion';

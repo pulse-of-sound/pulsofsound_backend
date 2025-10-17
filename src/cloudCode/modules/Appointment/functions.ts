@@ -2,6 +2,9 @@ import {CloudFunction} from '../../utils/Registry/decorators';
 import Appointment from '../../models/Appointment';
 import AppointmentPlan from '../../models/AppointmentPlan';
 import Invoice from '../../models/Invoice';
+import Notifications from '../../models/Notifications';
+import ChatGroup from '../../models/ChatGroup';
+import ChatGroupParticipant from '../../models/ChatGroupParticipant';
 
 class AppointmentFunctions {
   @CloudFunction({
@@ -328,6 +331,99 @@ class AppointmentFunctions {
       throw {
         codeStatus: error.codeStatus || 1006,
         message: error.message || 'Failed to verify access to child evaluation',
+      };
+    }
+  } @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        appointment_id: {type: String, required: true},
+        decision: {type: String, required: true},
+      },
+    },
+  })
+  async handleAppointmentDecision(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const user = req.user;
+      if (!user) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const {appointment_id, decision} = req.params;
+
+      if (!['approve', 'reject'].includes(decision)) {
+        throw {codeStatus: 105, message: 'Invalid decision value'};
+      }
+
+      const appointment = await new Parse.Query(Appointment)
+        .include(['provider_id', 'user_id', 'child_id'])
+        .get(appointment_id, {useMasterKey: true});
+
+      if (!appointment) {
+        throw {codeStatus: 104, message: 'Appointment not found'};
+      }
+
+      const provider = appointment.get('provider_id');
+      const requester = appointment.get('user_id');
+
+      if (provider?.id !== user.id) {
+        throw {
+          codeStatus: 102,
+          message: 'Unauthorized: Only the assigned provider can make this decision',
+        };
+      }
+
+      const status = decision === 'approve' ? 'confirmed' : 'rejected';
+      appointment.set('status', status);
+      appointment.set('updated_at', new Date());
+      await appointment.save(null, {useMasterKey: true});
+
+      let chatGroup: Parse.Object | undefined;
+
+      if (decision === 'approve') {
+        chatGroup = new ChatGroup();
+        chatGroup.set('appointment_id', appointment);
+        chatGroup.set('child_id', appointment.get('child_id'));
+        chatGroup.set('chat_status', 'active');
+        await chatGroup.save(null, {useMasterKey: true});
+
+        const participants = [provider, requester].filter(Boolean);
+        for (const participant of participants) {
+          const chatParticipant = new ChatGroupParticipant();
+          chatParticipant.set('chat_group_id', chatGroup);
+          chatParticipant.set('user_id', participant);
+          await chatParticipant.save(null, {useMasterKey: true});
+        }
+      }
+
+      const notification = new Notifications();
+      notification.set('user_id', requester);
+      notification.set('type', decision === 'approve' ? 'appointment_approved' : 'appointment_rejected');
+      notification.set('title', decision === 'approve' ? 'تمت الموافقة على الموعد' : 'تم رفض الموعد');
+      notification.set('body', decision === 'approve'
+        ? 'يمكنك الآن بدء المحادثة مع الطبيب'
+        : 'نعتذر، لم يتم قبول طلب الموعد من قبل الطبيب');
+      notification.set('appointment_id', appointment);
+      if (chatGroup) {
+        notification.set('chat_group_id', chatGroup);
+      }
+      notification.set('is_read', false);
+      notification.set('created_at', new Date());
+      await notification.save(null, {useMasterKey: true});
+
+      return {
+        message: decision === 'approve'
+          ? 'Appointment approved, chat group created, and notification sent'
+          : 'Appointment rejected and notification sent',
+        appointment_status: status,
+        ...(chatGroup && {chat_group_id: chatGroup.id}),
+      };
+    } catch (error: any) {
+      console.error('Error in handleAppointmentDecision:', error);
+      throw {
+        codeStatus: error.codeStatus || 1012,
+        message: error.message || 'Failed to handle appointment decision',
       };
     }
   }
