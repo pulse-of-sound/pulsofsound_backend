@@ -175,6 +175,63 @@ class ChatGroupFunctions {
       };
     }
   }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        chat_group_id: {type: String, required: true},
+      },
+    },
+  })
+  async archiveChatGroup(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const rawUser = req.user;
+      if (!rawUser) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const user = await new Parse.Query('_User')
+        .include('role')
+        .get(rawUser.id, {useMasterKey: true});
+
+      const roleObject = user.get('role');
+      const systemRole = roleObject?.get('name');
+
+      if (!['Admin', 'SuperAdmin'].includes(systemRole)) {
+        throw {
+          codeStatus: 403,
+          message: 'Unauthorized: You must be Admin or SuperAdmin to archive chat groups',
+        };
+      }
+
+      const {chat_group_id} = req.params;
+
+      const chatGroup = await new Parse.Query(ChatGroup)
+        .get(chat_group_id, {useMasterKey: true});
+
+      if (!chatGroup) {
+        throw {
+          codeStatus: 404,
+          message: 'Chat group not found',
+        };
+      }
+
+      chatGroup.set('chat_status', 'archived');
+      await chatGroup.save(null, {useMasterKey: true});
+
+      return {
+        message: 'Chat group archived successfully',
+        chat_group_id,
+      };
+    } catch (error: any) {
+      console.error('Error in archiveChatGroup:', error);
+      throw {
+        codeStatus: error.codeStatus || 1023,
+        message: error.message || 'Failed to archive chat group',
+      };
+    }
+  }
 }
 
 export default new ChatGroupFunctions();

@@ -1,6 +1,7 @@
 import {CloudFunction} from '../../utils/Registry/decorators';
 import ChatMessage from '../../models/ChatMessage';
 import ChatGroup from '../../models/ChatGroup';
+import ChatGroupParticipant from '../../models/ChatGroupParticipant';
 
 class ChatMessageFunctions {
   @CloudFunction({
@@ -58,6 +59,37 @@ class ChatMessageFunctions {
           'child_id',
           new Parse.Object('ChildProfile', {id: child_id})
         );
+      }
+      const chatStatus = chatGroup.get('chat_status');
+      if (chatStatus === 'archived') {
+        throw {
+          codeStatus: 403,
+          message: 'This chat group is archived. You cannot send new messages.',
+        };
+      }
+      const participantQuery = new Parse.Query(ChatGroupParticipant);
+      participantQuery.equalTo(
+        'chat_group_id',
+        new Parse.Object('ChatGroup', {id: chat_group_id})
+      );
+      participantQuery.equalTo('user_id', user);
+
+      const participant = await participantQuery.first({useMasterKey: true});
+      if (!participant) {
+        throw {
+          codeStatus: 105,
+          message: 'You are not a participant in this group',
+        };
+      }
+
+      const isMuted = participant.get('is_muted');
+      const muteUntil = participant.get('mute_until');
+
+      if (isMuted && muteUntil && muteUntil > new Date()) {
+        throw {
+          codeStatus: 403,
+          message: `You are muted until ${muteUntil.toISOString()}`,
+        };
       }
 
       const notification = new Parse.Object('Notifications');
@@ -262,6 +294,59 @@ class ChatMessageFunctions {
       throw {
         codeStatus: error.codeStatus || 1019,
         message: error.message || 'Failed to fetch user chat groups',
+      };
+    }
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+      fields: {
+        chat_group_id: {type: String, required: true},
+      },
+    },
+  })
+  async getChatHistory(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const user = req.user;
+      if (!user) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const {chat_group_id} = req.params;
+
+      const query = new Parse.Query(ChatMessage);
+      query.equalTo('chat_group_id', new Parse.Object('ChatGroup', {id: chat_group_id}));
+      query.include(['send_id', 'receive_id', 'child_id']);
+      query.ascending('time');
+      query.limit(1000);
+      const messages = await query.find({useMasterKey: true});
+
+      const formatted = messages.map((msg) => ({
+        chat_message_id: msg.id,
+        message: msg.get('message'),
+        time: msg.get('time'),
+        sender: {
+          id: msg.get('send_id')?.id,
+          username: msg.get('send_id')?.get('username'),
+        },
+        receiver: {
+          id: msg.get('receive_id')?.id,
+          username: msg.get('receive_id')?.get('username'),
+        },
+        child_id: msg.get('child_id')?.id || null,
+      }));
+
+      return {
+        message: 'Chat history retrieved successfully',
+        chat_group_id,
+        messages: formatted,
+      };
+    } catch (error: any) {
+      console.error('Error in getChatHistory:', error);
+      throw {
+        codeStatus: error.codeStatus || 1024,
+        message: error.message || 'Failed to retrieve chat history',
       };
     }
   }
