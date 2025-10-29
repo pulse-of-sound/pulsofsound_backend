@@ -28,4 +28,7 @@ export type ClassNameType =
   | 'ChatGroup'
   | 'ChatMessage'
   | 'Notifications'
+  | 'Wallet'
+  | 'WalletTransaction'
+  | 'ChargeRequest'
   | 'GameQuestion';
