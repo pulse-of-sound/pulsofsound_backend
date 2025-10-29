@@ -244,14 +244,19 @@ class WalletTransactionFunctions {
       const isAdmin = roleName === 'admin';
 
       if (!isAdmin) {
-        throw {codeStatus: 403, message: 'Only admins can reverse transactions'};
+        throw {
+          codeStatus: 403,
+          message: 'Only admins can reverse transactions',
+        };
       }
 
       const {transaction_id, reason} = req.params;
 
       const txQuery = new Parse.Query(WalletTransaction);
       txQuery.include(['from_wallet', 'to_wallet', 'appointment_id']);
-      const originalTx = await txQuery.get(transaction_id, {useMasterKey: true});
+      const originalTx = await txQuery.get(transaction_id, {
+        useMasterKey: true,
+      });
 
       if (!originalTx) {
         throw {codeStatus: 404, message: 'Original transaction not found'};
@@ -264,7 +269,10 @@ class WalletTransactionFunctions {
 
       const fromBalance = toWallet.get('balance') || 0;
       if (fromBalance < amount) {
-        throw {codeStatus: 402, message: 'Insufficient balance in target wallet to reverse'};
+        throw {
+          codeStatus: 402,
+          message: 'Insufficient balance in target wallet to reverse',
+        };
       }
 
       toWallet.set('balance', fromBalance - amount);
@@ -300,6 +308,51 @@ class WalletTransactionFunctions {
       throw {
         codeStatus: error.codeStatus || 1019,
         message: error.message || 'Failed to reverse transaction',
+      };
+    }
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+      fields: {
+        transaction_id: {type: String, required: true},
+      },
+    },
+  })
+  async getTransactionById(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const user = req.user;
+      if (!user) {
+        throw {codeStatus: 103, message: 'User context is missing'};
+      }
+
+      const {transaction_id} = req.params;
+
+      const query = new Parse.Query(WalletTransaction);
+      query.include(['from_wallet', 'to_wallet', 'appointment_id']);
+      const tx = await query.get(transaction_id, {useMasterKey: true});
+
+      if (!tx) {
+        throw {codeStatus: 404, message: 'Transaction not found'};
+      }
+
+      return {
+        message: 'Transaction details retrieved successfully',
+        transaction_id: tx.id,
+        from_wallet_id: tx.get('from_wallet')?.id,
+        to_wallet_id: tx.get('to_wallet')?.id,
+        amount: tx.get('amount'),
+        type: tx.get('type'),
+        appointment_id: tx.get('appointment_id')?.id || null,
+        note: tx.get('note') || null,
+        createdAt: tx.get('createdAt'),
+      };
+    } catch (error: any) {
+      console.error('Error in getTransactionById:', error);
+      throw {
+        codeStatus: error.codeStatus || 1020,
+        message: error.message || 'Failed to retrieve transaction details',
       };
     }
   }

@@ -5,6 +5,8 @@ import Invoice from '../../models/Invoice';
 import Notifications from '../../models/Notifications';
 import ChatGroup from '../../models/ChatGroup';
 import ChatGroupParticipant from '../../models/ChatGroupParticipant';
+import WalletTransaction from '../../models/WalletTransaction';
+import Wallet from '../../models/Wallet';
 
 class AppointmentFunctions {
   @CloudFunction({
@@ -333,7 +335,8 @@ class AppointmentFunctions {
         message: error.message || 'Failed to verify access to child evaluation',
       };
     }
-  } @CloudFunction({
+  }
+  @CloudFunction({
     methods: ['POST'],
     validation: {
       requireUser: true,
@@ -346,9 +349,7 @@ class AppointmentFunctions {
   async handleAppointmentDecision(req: Parse.Cloud.FunctionRequest) {
     try {
       const user = req.user;
-      if (!user) {
-        throw {codeStatus: 103, message: 'User context is missing'};
-      }
+      if (!user) throw {codeStatus: 103, message: 'User context is missing'};
 
       const {appointment_id, decision} = req.params;
 
@@ -357,12 +358,11 @@ class AppointmentFunctions {
       }
 
       const appointment = await new Parse.Query(Appointment)
-        .include(['provider_id', 'user_id', 'child_id'])
+        .include(['provider_id', 'user_id', 'child_id', 'appointment_plan_id'])
         .get(appointment_id, {useMasterKey: true});
 
-      if (!appointment) {
+      if (!appointment)
         throw {codeStatus: 104, message: 'Appointment not found'};
-      }
 
       const provider = appointment.get('provider_id');
       const requester = appointment.get('user_id');
@@ -370,7 +370,8 @@ class AppointmentFunctions {
       if (provider?.id !== user.id) {
         throw {
           codeStatus: 102,
-          message: 'Unauthorized: Only the assigned provider can make this decision',
+          message:
+            'Unauthorized: Only the assigned provider can make this decision',
         };
       }
 
@@ -382,6 +383,54 @@ class AppointmentFunctions {
       let chatGroup: Parse.Object | undefined;
 
       if (decision === 'approve') {
+        const plan = appointment.get('appointment_plan_id');
+        if (!plan)
+          throw {codeStatus: 106, message: 'Appointment has no plan assigned'};
+
+        const price = plan.get('price');
+        if (!price || price <= 0)
+          throw {codeStatus: 107, message: 'Invalid plan price'};
+
+        const walletQuery = new Parse.Query(Wallet);
+        const requesterWallet = await walletQuery
+          .equalTo('user_id', requester)
+          .first({useMasterKey: true});
+        const providerWallet = await walletQuery
+          .equalTo('user_id', provider)
+          .first({useMasterKey: true});
+
+        if (!requesterWallet || !providerWallet) {
+          throw {
+            codeStatus: 108,
+            message: 'Wallets not found for requester or provider',
+          };
+        }
+
+        const requesterBalance = requesterWallet.get('balance') || 0;
+        if (requesterBalance < price) {
+          throw {
+            codeStatus: 402,
+            message: 'Insufficient balance in requester wallet',
+          };
+        }
+
+        requesterWallet.set('balance', requesterBalance - price);
+        const providerBalance = providerWallet.get('balance') || 0;
+        providerWallet.set('balance', providerBalance + price);
+
+        await Promise.all([
+          requesterWallet.save(null, {useMasterKey: true}),
+          providerWallet.save(null, {useMasterKey: true}),
+        ]);
+
+        const paymentTx = new WalletTransaction();
+        paymentTx.set('from_wallet', requesterWallet);
+        paymentTx.set('to_wallet', providerWallet);
+        paymentTx.set('amount', price);
+        paymentTx.set('type', 'payment');
+        paymentTx.set('appointment_id', appointment);
+        await paymentTx.save(null, {useMasterKey: true});
+
         chatGroup = new ChatGroup();
         chatGroup.set('appointment_id', appointment);
         chatGroup.set('child_id', appointment.get('child_id'));
@@ -397,25 +446,68 @@ class AppointmentFunctions {
         }
       }
 
+      if (decision === 'reject') {
+        const txQuery = new Parse.Query(WalletTransaction);
+        txQuery.equalTo('appointment_id', appointment);
+        txQuery.equalTo('type', 'payment');
+        txQuery.include(['from_wallet', 'to_wallet']);
+        const paymentTx = await txQuery.first({useMasterKey: true});
+
+        if (paymentTx) {
+          const fromWallet = paymentTx.get('from_wallet');
+          const toWallet = paymentTx.get('to_wallet');
+          const amount = paymentTx.get('amount');
+
+          const fromBalance = toWallet.get('balance') || 0;
+          if (fromBalance >= amount) {
+            toWallet.set('balance', fromBalance - amount);
+            const toBalance = fromWallet.get('balance') || 0;
+            fromWallet.set('balance', toBalance + amount);
+
+            await Promise.all([
+              fromWallet.save(null, {useMasterKey: true}),
+              toWallet.save(null, {useMasterKey: true}),
+            ]);
+
+            const reversalTx = new WalletTransaction();
+            reversalTx.set('from_wallet', toWallet);
+            reversalTx.set('to_wallet', fromWallet);
+            reversalTx.set('amount', amount);
+            reversalTx.set('type', 'reversal');
+            reversalTx.set('appointment_id', appointment);
+            reversalTx.set('note', 'تم استرجاع المبلغ بعد رفض الموعد');
+            await reversalTx.save(null, {useMasterKey: true});
+          }
+        }
+      }
+
       const notification = new Notifications();
       notification.set('user_id', requester);
-      notification.set('type', decision === 'approve' ? 'appointment_approved' : 'appointment_rejected');
-      notification.set('title', decision === 'approve' ? 'تمت الموافقة على الموعد' : 'تم رفض الموعد');
-      notification.set('body', decision === 'approve'
-        ? 'يمكنك الآن بدء المحادثة مع الطبيب'
-        : 'نعتذر، لم يتم قبول طلب الموعد من قبل الطبيب');
+      notification.set(
+        'type',
+        decision === 'approve' ? 'appointment_approved' : 'appointment_rejected'
+      );
+      notification.set(
+        'title',
+        decision === 'approve' ? 'تمت الموافقة على الموعد' : 'تم رفض الموعد'
+      );
+      notification.set(
+        'body',
+        decision === 'approve'
+          ? 'يمكنك الآن بدء المحادثة مع الطبيب'
+          : 'نعتذر، لم يتم قبول طلب الموعد من قبل الطبيب'
+      );
       notification.set('appointment_id', appointment);
-      if (chatGroup) {
-        notification.set('chat_group_id', chatGroup);
-      }
+      if (chatGroup) notification.set('chat_group_id', chatGroup);
       notification.set('is_read', false);
       notification.set('created_at', new Date());
       await notification.save(null, {useMasterKey: true});
 
       return {
-        message: decision === 'approve'
-          ? 'Appointment approved, chat group created, and notification sent'
-          : 'Appointment rejected and notification sent',
+        message:
+          decision === 'approve'
+            ? 'Appointment approved, payment processed, chat group created, and notification sent'
+            : 'Appointment rejected, payment reversed, and notification sent',
         appointment_status: status,
         ...(chatGroup && {chat_group_id: chatGroup.id}),
       };
