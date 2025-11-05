@@ -9,10 +9,23 @@ class ChildLevelFunctions {
     methods: ['POST'],
     validation: {
       requireUser: true,
+      fields: {
+        child_id: {type: String, required: true},
+      },
     },
   })
   async assignChildLevelIfPassed(req: Parse.Cloud.FunctionRequest) {
-    const score = req.user!.get('placement_test_score');
+    const {child_id} = req.params;
+    const user = req.user;
+
+    if (!user) {
+      throw {
+        codeStatus: 5001,
+        message: 'Unauthorized: user not found',
+      };
+    }
+
+    const score = user.get('placement_test_score');
     if (typeof score !== 'number') {
       throw {
         codeStatus: 5002,
@@ -28,13 +41,30 @@ class ChildLevelFunctions {
     }
 
     const childProfile = await new Parse.Query(ChildProfile)
-      .equalTo('user', req.user)
+      .equalTo('objectId', child_id)
+      .include('parent_id')
+      .include('user')
       .first({useMasterKey: true});
 
     if (!childProfile) {
       throw {
         codeStatus: 5003,
-        message: 'ChildProfile not found for this user',
+        message: 'ChildProfile not found',
+      };
+    }
+
+    const parent = childProfile.get('parent_id');
+    const directUser = childProfile.get('user');
+
+    const isChild = user.id === child_id;
+    const isParent =
+      (parent && user.id === parent.id) ||
+      (directUser && user.id === directUser.id);
+
+    if (!isChild && !isParent) {
+      throw {
+        codeStatus: 5006,
+        message: 'Access denied: not child or parent',
       };
     }
 
@@ -50,15 +80,15 @@ class ChildLevelFunctions {
     }
 
     const existing = await new Parse.Query(ChildLevel)
-      .equalTo('child', childProfile)
+      .equalTo('child_id', childProfile)
       .first({useMasterKey: true});
 
     const childLevel = existing || new ChildLevel();
-    childLevel.set('child', childProfile);
-    childLevel.set('level', firstLevel);
+    childLevel.set('child_id', childProfile);
+    childLevel.set('level_id', firstLevel);
     childLevel.set('current_game_order', 1);
 
-    const [error, data] = await catchError(
+    const [error, saved] = await catchError(
       childLevel.save(null, {useMasterKey: true})
     );
 
@@ -69,7 +99,16 @@ class ChildLevelFunctions {
       };
     }
 
-    return data;
+    return {
+      passed: true,
+      message: 'Child level assigned successfully',
+      childLevel: {
+        objectId: saved.id,
+        child_id: childProfile.id,
+        level_id: firstLevel.id,
+        current_game_order: 1,
+      },
+    };
   }
 }
 
