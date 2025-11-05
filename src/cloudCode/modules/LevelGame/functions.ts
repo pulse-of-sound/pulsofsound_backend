@@ -54,44 +54,85 @@ class LevelGameFunctions {
     }
   }
   @CloudFunction({
-    methods: ['GET'],
+    methods: ['POST'],
     validation: {
-      requireUser: true,
+      requireUser: false,
       fields: {
-        levelId: {required: true, type: String},
-      },
-    },
+        level_id: { required: true, type: String }
+      }
+    }
   })
-  async getLevelGames(req: Parse.Cloud.FunctionRequest) {
+  async getLevelGamesForLevel(req: Parse.Cloud.FunctionRequest) {
     try {
-      const {levelId} = req.params;
+      const { level_id } = req.params;
+
+      const levelPointer = new Parse.Object('Level');
+      levelPointer.id = level_id;
 
       const query = new Parse.Query(LevelGame);
-      query.equalTo(
-        'level_id',
-        new Parse.Object('Level').set('objectId', levelId)
-      );
+      query.equalTo('level_id', levelPointer);
       query.ascending('order');
 
-      const results = await query.find({useMasterKey: true});
+      const results = await query.find({ useMasterKey: true });
 
-      const levelGames = results.map(game => ({
-        objectId: game.id,
-        name: game.get('name'),
-        order: game.get('order'),
+      const stages = results.map(stage => ({
+        objectId: stage.id,
+        name: stage.get('name'),
+        description: stage.get('description'),
+        order: stage.get('order'),
+        level_id: level_id
       }));
 
       return {
         message: 'Level games fetched successfully',
-        levelGames,
+        stages
       };
     } catch (error: any) {
-      console.error('Error in getLevelGames:', error);
+      console.error('Error in getLevelGamesForLevel:', error);
       throw {
         codeStatus: error.codeStatus || 1001,
-        message: error.message || 'Failed to fetch level games',
+        message: error.message || 'Failed to fetch level games'
       };
     }
+  }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: false,
+      fields: {
+        level_id: { required: true, type: String },
+        current_order: { required: true, type: Number }
+      }
+    }
+  })
+  async getNextStageOrder(req: Parse.Cloud.FunctionRequest) {
+    const { level_id, current_order } = req.params;
+
+    const levelPointer = new Parse.Object('Level');
+    levelPointer.id = level_id;
+
+    const query = new Parse.Query(LevelGame);
+    query.equalTo('level_id', levelPointer);
+    query.equalTo('order', current_order + 1);
+
+    const nextStage = await query.first({ useMasterKey: true });
+
+    if (!nextStage) {
+      return {
+        completed: true,
+        message: 'Child has completed all stages in this level'
+      };
+    }
+
+    return {
+      completed: false,
+      message: 'Next stage found',
+      next_stage: {
+        objectId: nextStage.id,
+        name: nextStage.get('name'),
+        order: nextStage.get('order')
+      }
+    };
   }
 }
 

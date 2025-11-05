@@ -1,10 +1,5 @@
 import {CloudFunction} from '../../utils/Registry/decorators';
 import Level from '../../models/Level';
-import LevelGame from '../../models/LevelGame';
-import ChildLevel from '../../models/ChildLevel';
-import ChildProfile from '../../models/ChildProfile';
-// import LevelGame from '../../models/LevelGame';
-
 class LevelFunctions {
   @CloudFunction({
     methods: ['POST'],
@@ -81,89 +76,84 @@ class LevelFunctions {
   }
 
   @CloudFunction({
-    methods: ['GET'],
+    methods: ['POST'],
     validation: {
       requireUser: false,
       fields: {
-        child_id: {type: String, required: true},
+        level_id: {required: true, type: String},
       },
     },
   })
-  async getCurrentStageForChild(req: Parse.Cloud.FunctionRequest) {
-    try {
-      const {child_id} = req.params;
-      const user = req.user;
+  async getLevelById(req: Parse.Cloud.FunctionRequest) {
+    const {level_id} = req.params;
 
-      if (!user) {
-        throw {codeStatus: 401, message: 'Unauthorized: user not found'};
-      }
+    const level = await new Parse.Query(Level)
+      .equalTo('objectId', level_id)
+      .first({useMasterKey: true});
 
-      const childProfile = await new Parse.Query(ChildProfile)
-        .equalTo('objectId', child_id)
-        .include('parent_id')
-        .first({useMasterKey: true});
-
-      if (!childProfile) {
-        throw {codeStatus: 404, message: 'Child profile not found'};
-      }
-
-      const parent = childProfile.get('parent_id');
-      const directUser = childProfile.get('user');
-
-      const isChild = user.id === child_id;
-      const isParent =
-        (parent && user.id === parent.id) ||
-        (directUser && user.id === directUser.id);
-
-      if (!isChild && !isParent) {
-        throw {codeStatus: 403, message: 'Access denied: not child or parent'};
-      }
-
-      if (!isChild && !isParent) {
-        throw {codeStatus: 403, message: 'Access denied: not child or parent'};
-      }
-
-      const childLevelQuery = new Parse.Query(ChildLevel);
-      childLevelQuery.equalTo('child_id', childProfile);
-      childLevelQuery.include('level_id');
-      const childLevel = await childLevelQuery.first({useMasterKey: true});
-
-      if (!childLevel) {
-        throw {codeStatus: 404, message: 'Child level not found'};
-      }
-
-      const level = childLevel.get('level_id');
-      const currentOrder = childLevel.get('current_game_order');
-
-      if (!level || currentOrder === undefined) {
-        throw {codeStatus: 400, message: 'Invalid level or game order'};
-      }
-
-      const gameQuery = new Parse.Query(LevelGame);
-      gameQuery.equalTo('level_id', level);
-      gameQuery.equalTo('order', currentOrder);
-      const currentStage = await gameQuery.first({useMasterKey: true});
-
-      if (!currentStage) {
-        throw {codeStatus: 404, message: 'Current stage not found'};
-      }
-
-      return {
-        message: 'Current stage fetched successfully',
-        stage: {
-          objectId: currentStage.id,
-          title: currentStage.get('title'),
-          order: currentStage.get('order'),
-          level_id: level.id,
-        },
-      };
-    } catch (error: any) {
-      console.error('Error in getCurrentStageForChild:', error);
+    if (!level) {
       throw {
-        codeStatus: error.codeStatus || 1001,
-        message: error.message || 'Failed to fetch current stage',
+        codeStatus: 404,
+        message: 'Level not found',
       };
     }
+
+    return {
+      message: 'Level fetched successfully',
+      level: level.toJSON(),
+    };
+  }
+
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        level_id: {required: true, type: String},
+      },
+    },
+  })
+  async deleteLevel(req: Parse.Cloud.FunctionRequest) {
+    const {level_id} = req.params;
+    const user = req.user;
+
+    if (!user) {
+      throw {
+        codeStatus: 401,
+        message: 'Unauthorized: user not found',
+      };
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', 'Admin');
+    roleQuery.equalTo('users', user);
+
+    const isAdmin = await roleQuery.first({useMasterKey: true});
+
+    if (!isAdmin) {
+      throw {
+        codeStatus: 403,
+        message: 'Access denied: user is not in Admin role',
+      };
+    }
+
+    const level = await new Parse.Query(Level)
+      .equalTo('objectId', level_id)
+      .first({useMasterKey: true});
+
+    if (!level) {
+      throw {
+        codeStatus: 404,
+        message: 'Level not found',
+      };
+    }
+
+    await level.destroy({useMasterKey: true});
+
+    return {
+      message: 'Level deleted successfully',
+      deleted_id: level_id,
+    };
   }
 }
 
