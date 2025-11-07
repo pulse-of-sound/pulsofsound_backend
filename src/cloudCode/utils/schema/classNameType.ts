@@ -31,4 +31,4 @@ export type ClassNameType =
   | 'Wallet'
   | 'WalletTransaction'
   | 'ChargeRequest'
-  | 'GameQuestion';
+  | 'StageQuestion';

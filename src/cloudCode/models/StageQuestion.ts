@@ -1,7 +1,7 @@
 import {BaseModel} from '../utils/BaseModel';
 import {ParseClass, ParseField} from '../utils/decorator/baseDecorator';
 
-@ParseClass('GameQuestion', {
+@ParseClass('StageQuestion', {
   clp: {
     find: {'*': true},
     get: {'*': true},
@@ -10,41 +10,34 @@ import {ParseClass, ParseField} from '../utils/decorator/baseDecorator';
     delete: {'*': true},
   },
 })
-export default class GameQuestion extends BaseModel {
+export default class StageQuestion extends BaseModel {
   constructor() {
-    super('GameQuestion');
+    super('StageQuestion');
   }
 
   @ParseField('Pointer', true, 'LevelGame')
   level_game_id!: Parse.Object;
 
   @ParseField('String', true)
-  question_text!: string;
+  question_type!: string;
 
   @ParseField('String', false)
-  question_type?: string;
-
-  @ParseField('String', false)
-  option_type?: string;
+  instruction?: string;
 
   @ParseField('Array', false)
-  options?: string[];
+  images?: string[];
 
-  @ParseField('String', false)
-  option_a?: string;
+  @ParseField('Object', false)
+  correct_answer?: object;
 
-  @ParseField('String', false)
-  option_b?: string;
-
-  @ParseField('String', false)
-  option_c?: string;
-
-  @ParseField('String', false)
-  option_d?: string;
+  @ParseField('Object', false)
+  options?: object;
 
   @ParseField('Date', false)
   created_at?: Date;
 
   @ParseField('Date', false)
   updated_at?: Date;
+  @ParseField('Number', false)
+  order?: number;
 }
