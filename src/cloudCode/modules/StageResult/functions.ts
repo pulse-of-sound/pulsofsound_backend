@@ -2,6 +2,7 @@ import {CloudFunction} from '../../utils/Registry/decorators';
 import StageQuestion from '../../models/StageQuestion';
 import LevelGame from '../../models/LevelGame';
 import StageResult from '../../models/StageResult';
+import UserStageStatus from '../../models/UserStageStatus';
 
 interface AnswerInput {
   question_id: string;
@@ -100,8 +101,32 @@ class StageResultFunctions {
 
       await result.save(null, {useMasterKey: true});
 
+      const statusQuery = new Parse.Query(UserStageStatus);
+      statusQuery.equalTo('user_id', user);
+      statusQuery.equalTo('level_game_id', stagePointer);
+      const existingStatus = await statusQuery.first({useMasterKey: true});
+
+      const now = new Date();
+
+      if (existingStatus) {
+        existingStatus.set('status', 'completed');
+        existingStatus.set('completed_at', now);
+        existingStatus.set('score', correctCount);
+        existingStatus.increment('attempts', 1);
+        await existingStatus.save(null, {useMasterKey: true});
+      } else {
+        const newStatus = new UserStageStatus();
+        newStatus.set('user_id', user);
+        newStatus.set('level_game_id', stagePointer);
+        newStatus.set('status', 'completed');
+        newStatus.set('completed_at', now);
+        newStatus.set('score', correctCount);
+        newStatus.set('attempts', 1);
+        await newStatus.save(null, {useMasterKey: true});
+      }
+
       return {
-        message: 'Stage answers submitted successfully',
+        message: 'Stage answers submitted and status updated successfully',
         score: correctCount,
         total: stageQuestions.length,
       };
@@ -212,6 +237,69 @@ class StageResultFunctions {
       throw {
         codeStatus: error.codeStatus || 1005,
         message: error.message || 'Failed to fetch stage result',
+      };
+    }
+  }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        level_game_id: {required: true, type: String},
+      },
+    },
+  })
+  async getStageHistory(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const {level_game_id} = req.params;
+      const user = req.user;
+
+      if (!user) {
+        throw {
+          codeStatus: 401,
+          message: 'Unauthorized: user not found',
+        };
+      }
+
+      const stagePointer = await new Parse.Query(LevelGame)
+        .equalTo('objectId', level_game_id)
+        .first({useMasterKey: true});
+
+      if (!stagePointer) {
+        throw {
+          codeStatus: 404,
+          message: 'LevelGame not found',
+        };
+      }
+
+      const resultQuery = new Parse.Query(StageResult);
+      resultQuery.equalTo('user_id', user);
+      resultQuery.equalTo('level_game_id', stagePointer);
+      resultQuery.descending('createdAt');
+      const results = await resultQuery.find({useMasterKey: true});
+
+      const history = results.map(result => ({
+        score: result.get('score') || 0,
+        total: result.get('total_questions') || 0,
+        percent: result.get('total_questions')
+          ? Math.round(
+              (result.get('score') / result.get('total_questions')) * 100
+            )
+          : 0,
+        created_at: result.get('created_at') || result.createdAt,
+        answers: result.get('answers') || [],
+      }));
+
+      return {
+        message: 'Stage history fetched successfully',
+        attempts: history.length,
+        history,
+      };
+    } catch (error: any) {
+      console.error('Error in getStageHistory:', error);
+      throw {
+        codeStatus: error.codeStatus || 1007,
+        message: error.message || 'Failed to fetch stage history',
       };
     }
   }
