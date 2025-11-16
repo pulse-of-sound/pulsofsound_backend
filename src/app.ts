@@ -255,10 +255,17 @@ async function main() {
   // Mount Parse Server
   app.use(process.env.mountPath as string, parseServer.app);
   CloudFunctionRegistry.initialize();
+  // // Start server
+  // server.listen(1337, () => {
+  //   seedAll();
+  //   console.log('The Server is up and running on port 1337.');
+  // });
   // Start server
-  server.listen(1337, () => {
+  const PORT = process.env.PORT || 1337;
+
+  server.listen(PORT, () => {
     seedAll();
-    console.log('The Server is up and running on port 1337.');
+    console.log(`The Server is up and running on port ${PORT}.`);
   });
 
   // Start Live Query Server
