@@ -1,8 +1,6 @@
-import {transporter} from '../../../app';
 import OTPcode from '../../models/OTPcode';
 import {CloudFunction} from '../../utils/Registry/decorators';
 import generateRandomInteger from '../../utils/generateRandom';
-import User from '../../models/User';
 
 import {
   sharedGetFields,

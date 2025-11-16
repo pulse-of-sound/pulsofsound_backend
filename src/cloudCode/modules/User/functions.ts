@@ -1,7 +1,4 @@
-import AccountStatus from '../../models/AccountStatus';
 import User from '../../models/User';
-import UserBlock from '../../models/UserBlock';
-import UserDeleted from '../../models/UserDelete';
 import {CloudFunction} from '../../utils/Registry/decorators';
 import {catchError} from '../../utils/catchError';
 import {UserRoles} from '../../utils/constants';
@@ -362,7 +359,7 @@ class User_ {
 
     if (existingUser) {
       existingUser.set('fullName', fullName);
-      existingUser.set('password', password); // يمكن حذف هذا لو لا تريدين تغييره
+      existingUser.set('password', password);
       if (mobile) existingUser.set('mobile', mobile);
       if (email) existingUser.set('email', email);
       existingUser.set('role', roleObj.toPointer());

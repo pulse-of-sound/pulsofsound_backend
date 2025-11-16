@@ -7,7 +7,7 @@
   },
   "scripts": {
     "compile": "tsc",
-    "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=1024 ./build/src/app.js",
+    "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=2048 ./build/src/app.js",
     "deploy": "node deploy.js",
     "db": "parse-dashboard --config dashboard.json"
   },
