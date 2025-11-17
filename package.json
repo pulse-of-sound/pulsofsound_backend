@@ -5,14 +5,13 @@
     "ts-node": "^10.9.2",
     "typescript": "~5.2.0"
   },
-    "scripts": {
+  "scripts": {
     "build": "tsc",
     "compile": "tsc",
     "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=1024 ./build/src/app.js",
     "deploy": "node deploy.js",
     "db": "parse-dashboard --config dashboard.json"
   },
-
   "dependencies": {
     "@types/nodemailer": "^7.0.0",
     "@types/parse": "^3.0.9",
@@ -30,7 +29,7 @@
     "i18n-iso-countries": "^7.14.0",
     "nodemailer": "^7.0.5",
     "openai": "^5.16.0",
-    "parse": "^6.0.0",
+    "parse": "^3.4.4",
     "parse-server": "^8.2.1",
     "phone": "^3.1.42",
     "reflect-metadata": "^0.2.2",
