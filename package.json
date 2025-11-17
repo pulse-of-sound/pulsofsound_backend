@@ -6,11 +6,12 @@
     "typescript": "~5.2.0"
   },
   "scripts": {
-    "compile": "tsc",
-    "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=2048 ./build/src/app.js",
-    "deploy": "node deploy.js",
-    "db": "parse-dashboard --config dashboard.json"
-  },
+  "build": "tsc",
+  "start": "node ./build/src/app.js",
+  "deploy": "node deploy.js",
+  "db": "parse-dashboard --config dashboard.json"
+},
+
   "dependencies": {
     "@types/nodemailer": "^7.0.0",
     "@types/parse": "^3.0.9",

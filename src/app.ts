@@ -260,13 +260,12 @@ async function main() {
   //   seedAll();
   //   console.log('The Server is up and running on port 1337.');
   // });
-  // Start server
   const PORT = process.env.PORT || 1337;
+server.listen(PORT, () => {
+  seedAll();
+  console.log(`The Server is up and running on port ${PORT}.`);
+});
 
-  server.listen(PORT, () => {
-    seedAll();
-    console.log(`The Server is up and running on port ${PORT}.`);
-  });
 
   // Start Live Query Server
   try {
