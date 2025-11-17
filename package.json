@@ -6,6 +6,7 @@
     "typescript": "~5.2.0"
   },
     "scripts": {
+    "build": "tsc",
     "compile": "tsc",
     "start": "rimraf build/src/cloudCode && rimraf build/src/app.js  && tsc && node --max-old-space-size=1024 ./build/src/app.js",
     "deploy": "node deploy.js",
