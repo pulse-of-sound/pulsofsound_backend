@@ -264,14 +264,14 @@ async function main() {
   // Start Live Query Server
   try {
     await ParseServer.createLiveQueryServer(server);
-    console.log('✅ Live Query Server started successfully');
+    console.log('Live Query Server started successfully');
 
     // Add WebSocket connection logging
     server.on('upgrade', (request: any, socket: any, head: any) => {
       console.log('🔌 WebSocket upgrade request:', request.url);
     });
   } catch (error) {
-    console.error('❌ Error starting Live Query Server:', error);
+    console.error('Error starting Live Query Server:', error);
   }
 }
 

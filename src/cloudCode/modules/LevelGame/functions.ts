@@ -270,6 +270,94 @@ class LevelGameFunctions {
       },
     };
   }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        currentStageId: {required: true, type: String},
+      },
+    },
+  })
+  async getNextStageOrLevel(req: Parse.Cloud.FunctionRequest) {
+    try {
+      const {currentStageId} = req.params;
+
+      const currentStage = await new Parse.Query(LevelGame)
+        .equalTo('objectId', currentStageId)
+        .first({useMasterKey: true});
+
+      if (!currentStage) {
+        throw {
+          codeStatus: 404,
+          message: 'Current stage not found',
+        };
+      }
+
+      const levelPointer = currentStage.get('level_id');
+      const currentOrder = currentStage.get('order');
+
+      const nextStage = await new Parse.Query(LevelGame)
+        .equalTo('level_id', levelPointer)
+        .greaterThan('order', currentOrder)
+        .ascending('order')
+        .first({useMasterKey: true});
+
+      if (nextStage) {
+        return {
+          message: 'Next stage found',
+          next: {
+            type: 'stage',
+            objectId: nextStage.id,
+            name: nextStage.get('name'),
+            order: nextStage.get('order'),
+            level_id: levelPointer.id,
+          },
+        };
+      }
+
+      const currentLevel = await new Parse.Query('Level')
+        .equalTo('objectId', levelPointer.id)
+        .first({useMasterKey: true});
+
+      if (!currentLevel) {
+        throw {
+          codeStatus: 404,
+          message: 'Current level not found',
+        };
+      }
+
+      const currentLevelOrder = currentLevel.get('order');
+
+      const nextLevel = await new Parse.Query('Level')
+        .greaterThan('order', currentLevelOrder)
+        .ascending('order')
+        .first({useMasterKey: true});
+
+      if (nextLevel) {
+        return {
+          message: 'Next level found',
+          next: {
+            type: 'level',
+            objectId: nextLevel.id,
+            name: nextLevel.get('name'),
+            order: nextLevel.get('order'),
+          },
+        };
+      }
+
+      return {
+        message: 'No next stage or level available',
+        next: null,
+      };
+    } catch (error: any) {
+      console.error('Error in getNextStageOrLevel:', error);
+      throw {
+        codeStatus: error.codeStatus || 1003,
+        message: error.message || 'Failed to get next stage or level',
+      };
+    }
+  }
 }
 
 export default new LevelGameFunctions();
