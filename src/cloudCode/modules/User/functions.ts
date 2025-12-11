@@ -49,7 +49,6 @@ class User_ {
 
     return await user.save(null, {sessionToken});
   }
-  // important
   @CloudFunction({
     methods: ['POST'],
     validation: {
@@ -70,7 +69,6 @@ class User_ {
     return {message: 'User logged out successfully'};
   }
 
-  // important
   @CloudFunction({
     methods: ['POST'],
     validation: {
@@ -104,18 +102,16 @@ class User_ {
     const roleQuery = new Parse.Query(Parse.Role);
     roleQuery.equalTo('users', user);
 
-    const roles = await roleQuery.find({useMasterKey: true}); // Use master key for broader access if needed
+    const roles = await roleQuery.find({useMasterKey: true});
 
     const validRoleNames = Object.values(UserRoles);
     const matchedRoles = roles.filter(role =>
       validRoleNames.includes(role.get('name'))
     );
 
-    // You can choose to return just one role (e.g., the first match), or all
     const selectedRole = matchedRoles[0];
     const userJson = User.map(user as User, selectedRole) as any;
 
-    // Add session token to response
     return {
       ...userJson,
       sessionToken: user.getSessionToken(),
@@ -199,7 +195,7 @@ class User_ {
   })
   async addSystemUser(req: Parse.Cloud.FunctionRequest) {
     const {fullName, username, password, mobile, email} = req.params;
-    const role = req.params.role || SystemRoles.CHILD; // ← القيمة الافتراضية
+    const role = req.params.role || SystemRoles.CHILD;
 
     const validRoles = Object.values(SystemRoles);
     if (!validRoles.includes(role)) {
@@ -260,24 +256,24 @@ class User_ {
     };
   }
 
-    @CloudFunction({
+  @CloudFunction({
     methods: ['POST'],
     validation: {
       fields: {
-        fullName: { required: true, type: String },
-        username: { required: true, type: String },
-        password: { required: true, type: String },
-        mobile: { required: false, type: String },
-        email: { required: false, type: String },
+        fullName: {required: true, type: String},
+        username: {required: true, type: String},
+        password: {required: true, type: String},
+        mobile: {required: false, type: String},
+        email: {required: false, type: String},
       },
     },
   })
   async addEditDoctor(req: Parse.Cloud.FunctionRequest) {
-    const { fullName, username, password, mobile, email } = req.params;
+    const {fullName, username, password, mobile, email} = req.params;
 
     const roleQuery = new Parse.Query(Parse.Role);
     roleQuery.equalTo('name', SystemRoles.DOCTOR);
-    const roleObj = await roleQuery.first({ useMasterKey: true });
+    const roleObj = await roleQuery.first({useMasterKey: true});
 
     if (!roleObj) {
       throw new Parse.Error(141, `Role '${SystemRoles.DOCTOR}' not found`);
@@ -285,7 +281,7 @@ class User_ {
 
     const existingUser = await new Parse.Query(Parse.User)
       .equalTo('username', username)
-      .first({ useMasterKey: true });
+      .first({useMasterKey: true});
 
     if (existingUser) {
       existingUser.set('fullName', fullName);
@@ -294,10 +290,10 @@ class User_ {
       if (email) existingUser.set('email', email);
       existingUser.set('role', roleObj.toPointer());
 
-      await existingUser.save(null, { useMasterKey: true });
+      await existingUser.save(null, {useMasterKey: true});
 
       roleObj.relation('users').add(existingUser);
-      await roleObj.save(null, { useMasterKey: true });
+      await roleObj.save(null, {useMasterKey: true});
 
       return {
         message: 'Doctor updated successfully',
@@ -315,10 +311,10 @@ class User_ {
     if (mobile) user.set('mobile', mobile);
     if (email) user.set('email', email);
 
-    await user.signUp(null, { useMasterKey: true });
+    await user.signUp(null, {useMasterKey: true});
 
     roleObj.relation('users').add(user);
-    await roleObj.save(null, { useMasterKey: true });
+    await roleObj.save(null, {useMasterKey: true});
 
     return {
       message: 'Doctor created and logged in successfully',
@@ -429,7 +425,7 @@ class User_ {
 
     if (existingUser) {
       existingUser.set('fullName', fullName);
-      existingUser.set('password', password); // يمكن حذف هذا لو لا تريدين تغييره
+      existingUser.set('password', password);
       if (mobile) existingUser.set('mobile', mobile);
       if (email) existingUser.set('email', email);
       existingUser.set('role', roleObj.toPointer());
@@ -750,6 +746,295 @@ class User_ {
     await adminUser.destroy({useMasterKey: true});
 
     return {message: 'The Admin was successfully deleted.'};
+  }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        fullName: {required: false, type: String},
+        mobile: {required: false, type: String},
+        email: {required: false, type: String},
+        password: {required: false, type: String},
+      },
+    },
+  })
+  async updateAdminProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.ADMIN);
+    const adminRole = await roleQuery.first({useMasterKey: true});
+
+    if (!adminRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.ADMIN}' not found`);
+    }
+
+    const relation = adminRole.relation('users');
+    const admins = await relation.query().find({useMasterKey: true});
+
+    const isAdmin = admins.some(admin => admin.id === user.id);
+
+    if (!isAdmin) {
+      throw new Parse.Error(141, 'Only admins can update admin profile');
+    }
+
+    const {fullName, mobile, email, password} = req.params;
+
+    if (fullName) user.set('fullName', fullName);
+    if (mobile) user.set('mobile', mobile);
+    if (email) user.set('email', email);
+    if (password) user.set('password', password);
+
+    await user.save(null, {useMasterKey: true});
+
+    return {
+      message: 'Admin profile updated successfully',
+      userId: user.id,
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+    };
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async getAdminProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.ADMIN);
+    const adminRole = await roleQuery.first({useMasterKey: true});
+
+    if (!adminRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.ADMIN}' not found`);
+    }
+
+    const relation = adminRole.relation('users');
+    const admins = await relation.query().find({useMasterKey: true});
+
+    const isAdmin = admins.some(admin => admin.id === user.id);
+
+    if (!isAdmin) {
+      throw new Parse.Error(141, 'Only admins can access this profile');
+    }
+
+    return {
+      userId: user.id,
+      username: user.get('username'),
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+      role: SystemRoles.ADMIN,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        fullName: {required: false, type: String},
+        mobile: {required: false, type: String},
+        email: {required: false, type: String},
+        password: {required: false, type: String},
+      },
+    },
+  })
+  async updateDoctorProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.DOCTOR);
+    const doctorRole = await roleQuery.first({useMasterKey: true});
+
+    if (!doctorRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.DOCTOR}' not found`);
+    }
+
+    const relation = doctorRole.relation('users');
+    const doctors = await relation.query().find({useMasterKey: true});
+
+    const isDoctor = doctors.some(doctor => doctor.id === user.id);
+
+    if (!isDoctor) {
+      throw new Parse.Error(141, 'Only doctors can update doctor profile');
+    }
+
+    const {fullName, mobile, email, password} = req.params;
+
+    if (fullName) user.set('fullName', fullName);
+    if (mobile) user.set('mobile', mobile);
+    if (email) user.set('email', email);
+    if (password) user.set('password', password);
+
+    await user.save(null, {useMasterKey: true});
+
+    return {
+      message: 'Doctor profile updated successfully',
+      userId: user.id,
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+    };
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async getDoctorProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.DOCTOR);
+    const doctorRole = await roleQuery.first({useMasterKey: true});
+
+    if (!doctorRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.DOCTOR}' not found`);
+    }
+
+    const relation = doctorRole.relation('users');
+    const doctors = await relation.query().find({useMasterKey: true});
+
+    const isDoctor = doctors.some(doctor => doctor.id === user.id);
+
+    if (!isDoctor) {
+      throw new Parse.Error(141, 'Only doctors can access this profile');
+    }
+
+    return {
+      userId: user.id,
+      username: user.get('username'),
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+      role: SystemRoles.DOCTOR,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
+  }
+  @CloudFunction({
+    methods: ['POST'],
+    validation: {
+      requireUser: true,
+      fields: {
+        fullName: {required: false, type: String},
+        mobile: {required: false, type: String},
+        email: {required: false, type: String},
+        password: {required: false, type: String},
+      },
+    },
+  })
+  async updateSpecialistProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.SPECIALIST);
+    const specialistRole = await roleQuery.first({useMasterKey: true});
+
+    if (!specialistRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.SPECIALIST}' not found`);
+    }
+
+    const relation = specialistRole.relation('users');
+    const specialists = await relation.query().find({useMasterKey: true});
+
+    const isSpecialist = specialists.some(
+      specialist => specialist.id === user.id
+    );
+
+    if (!isSpecialist) {
+      throw new Parse.Error(
+        141,
+        'Only specialists can update specialist profile'
+      );
+    }
+
+    const {fullName, mobile, email, password} = req.params;
+
+    if (fullName) user.set('fullName', fullName);
+    if (mobile) user.set('mobile', mobile);
+    if (email) user.set('email', email);
+    if (password) user.set('password', password);
+
+    await user.save(null, {useMasterKey: true});
+
+    return {
+      message: 'Specialist profile updated successfully',
+      userId: user.id,
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+    };
+  }
+  @CloudFunction({
+    methods: ['GET'],
+    validation: {
+      requireUser: true,
+    },
+  })
+  async getSpecialistProfile(req: Parse.Cloud.FunctionRequest) {
+    const user = req.user;
+
+    if (!user) {
+      throw new Parse.Error(209, 'User not authenticated');
+    }
+
+    const roleQuery = new Parse.Query(Parse.Role);
+    roleQuery.equalTo('name', SystemRoles.SPECIALIST);
+    const specialistRole = await roleQuery.first({useMasterKey: true});
+
+    if (!specialistRole) {
+      throw new Parse.Error(141, `Role '${SystemRoles.SPECIALIST}' not found`);
+    }
+
+    const relation = specialistRole.relation('users');
+    const specialists = await relation.query().find({useMasterKey: true});
+
+    const isSpecialist = specialists.some(
+      specialist => specialist.id === user.id
+    );
+
+    if (!isSpecialist) {
+      throw new Parse.Error(141, 'Only specialists can access this profile');
+    }
+
+    return {
+      userId: user.id,
+      username: user.get('username'),
+      fullName: user.get('fullName'),
+      mobile: user.get('mobile'),
+      email: user.get('email'),
+      role: SystemRoles.SPECIALIST,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    };
   }
 }
 
